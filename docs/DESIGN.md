@@ -4,7 +4,7 @@
 
 A diagnosis tool for data-pipeline failures. It reads an error, matches it to a
 bank of known failures, and returns the fix with provenance. It learns from your
-feedback. It covers Airflow, dbt, Spark, Iceberg, and DuckDB.
+feedback. It covers Airflow, Airbyte, dbt, Spark, Iceberg, and DuckDB.
 
 It is not a model that guesses. The value is the bank and the match, not a
 large-model call. The match runs offline.

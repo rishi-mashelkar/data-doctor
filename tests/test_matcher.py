@@ -31,6 +31,30 @@ def test_version_outside_range_is_penalized():
     assert on[0].score > off[0].score
 
 
+def test_new_entries_rank_ahead_of_older_ones():
+    entries = load_seed()
+    cases = {
+        "airbyte-postgres-cdc-lsn-behind":
+            "Airbyte sync: Saved offset is before Replication slot's confirmed_flush_lsn, Airbyte will trigger sync from scratch",
+        "dbt-contract-mismatch":
+            "Compilation Error in model dim_customers: This model has an enforced contract that failed. data_type mismatch_reason assert_columns_equivalent",
+        "dbt-dag-cycle":
+            "Found a cycle: model.jaffle.orders --> model.jaffle.customers --> model.jaffle.orders",
+        "spark-ansi-arithmetic-overflow":
+            "org.apache.spark.SparkArithmeticException: [ARITHMETIC_OVERFLOW] integer overflow. Use 'try_add' to tolerate overflow and return NULL instead.",
+        "spark-implicit-cartesian":
+            "org.apache.spark.sql.AnalysisException: Detected implicit cartesian product for INNER join. Join condition is missing or trivial.",
+        "iceberg-commit-state-unknown":
+            "org.apache.iceberg.exceptions.CommitStateUnknownException: Cannot determine whether the commit was successful or not. Retrying an already successful operation will result in duplicate records",
+        "iceberg-no-such-namespace":
+            "org.apache.iceberg.exceptions.NoSuchNamespaceException: Namespace does not exist: prod.analytics",
+    }
+    for entry_id, err in cases.items():
+        matches = rank(fingerprint(err), entries, limit=3)
+        assert matches, entry_id
+        assert matches[0].entry.id == entry_id, (entry_id, matches[0].entry.id, matches[0].score)
+
+
 def test_unrelated_error_returns_nothing():
     entries = load_seed()
     matches = rank(fingerprint("the printer is out of toner"), entries)

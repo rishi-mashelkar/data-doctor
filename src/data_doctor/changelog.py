@@ -22,6 +22,7 @@ __all__ = ["Alert", "alerts", "detect_versions"]
 # Engine to the distribution names a project pins for it.
 _ENGINE_PACKAGES = {
     "airflow": {"apache-airflow", "airflow"},
+    "airbyte": {"airbyte"},
     "dbt": {"dbt-core", "dbt", "dbt-snowflake", "dbt-bigquery", "dbt-redshift", "dbt-postgres"},
     "spark": {"pyspark", "spark"},
     "iceberg": {"pyiceberg", "iceberg"},

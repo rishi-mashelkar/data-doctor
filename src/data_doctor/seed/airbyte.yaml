@@ -1,0 +1,393 @@
+- id: airbyte-postgres-cdc-lsn-behind
+  engine: airbyte
+  title: CDC offset is behind the replication slot
+  signature: "Saved offset is before Replication slot confirmed_flush_lsn Airbyte will trigger sync from scratch"
+  symptom: "A Postgres CDC sync that should be incremental reloads the table. The log
+    says the saved offset is before the slot's confirmed_flush_lsn."
+  root_cause: "Postgres has already discarded the WAL the offset points at. A busy
+    database can purge pg_wal. Or the source acknowledged the WAL and the
+    destination then failed, so the next read asks for a record that is gone."
+  fix: "Sync more often so the slot does not fall behind. Raise wal_keep_size so
+    Postgres keeps more WAL. Then reset the connection so Airbyte takes a fresh
+    snapshot. If you stop using the connection, drop the replication slot or the
+    WAL will fill the disk."
+  verification: "The next sync after the snapshot logs incremental changes and
+    does not repeat the confirmed_flush_lsn message."
+  version_range: ""
+  source: "https://docs.airbyte.com/integrations/sources/postgres/postgres-troubleshooting"
+  confidence: 0.7
+  status: reported
+  scope: public
+  tags: [cdc, postgres, wal]
+
+- id: airbyte-postgres-hot-standby-conflict
+  engine: airbyte
+  title: PSQLException - replica cancels the sync
+  signature: "FATAL: terminating connection due to conflict with recovery"
+  symptom: "A sync from a Postgres hot standby dies with FATAL: terminating
+    connection due to conflict with recovery."
+  root_cause: "The primary vacuumed rows the replica query still needed. The
+    replica cancels that query after max_standby_streaming_delay, and the default
+    wait is too short for a real sync."
+  fix: "Set hot_standby_feedback=on on the replica so the primary keeps the rows
+    until the sync finishes. WAL on the primary will grow while the replica is
+    busy. Sync from the primary if you cannot set that."
+  verification: "The sync runs to completion and the replica log has no
+    conflict with recovery cancel."
+  version_range: ""
+  source: "https://docs.airbyte.com/integrations/sources/postgres/postgres-troubleshooting"
+  confidence: 0.68
+  status: reported
+  scope: public
+  tags: [postgres, replica, cdc]
+
+- id: airbyte-postgres-temp-file-limit
+  engine: airbyte
+  title: Sync fails because temp_file_limit is too small
+  signature: "temporary file size exceeds temp_file_limit postgres"
+  symptom: "A sync of a large Postgres table fails with temporary file size
+    exceeds temp_file_limit."
+  root_cause: "The query spills a sort or a hash to disk, and the spill is larger
+    than temp_file_limit on the server."
+  fix: "Raise temp_file_limit on the Postgres instance so the query can spill.
+    On a very large table, also give the sync a cursor so one query does less
+    work."
+  verification: "The table sync finishes and the Postgres log no longer reports
+    temp_file_limit."
+  version_range: ""
+  source: "https://docs.airbyte.com/integrations/sources/postgres/postgres-troubleshooting"
+  confidence: 0.66
+  status: reported
+  scope: public
+  tags: [postgres, limits, sync]
+
+- id: airbyte-breaking-schema-paused
+  engine: airbyte
+  title: Breaking schema change pauses the connection
+  signature: "breaking schema change connection paused cursor removed primary key"
+  symptom: "A connection stops syncing and the Schema tab shows a breaking
+    change. The stream lost its cursor or its primary key."
+  root_cause: "Airbyte pauses the connection on a breaking schema change so later
+    syncs do not fail. Removing the cursor or the primary key is a breaking
+    change, whatever the propagate setting is."
+  fix: "Open the stream, select a cursor and a primary key again, and save.
+    Refresh or clear the affected streams so the next sync reloads history. A new
+    column can propagate on its own. A removed key cannot."
+  verification: "The connection is enabled, the Schema tab has no breaking change
+    mark, and the next sync completes."
+  version_range: ""
+  source: "https://docs.airbyte.com/platform/using-airbyte/schema-change-management"
+  confidence: 0.68
+  status: reported
+  scope: public
+  tags: [schema, cursor, sync]
+
+- id: airbyte-postgres-cdc-needs-primary-key
+  engine: airbyte
+  title: CDC incremental refused on a table with no primary key
+  signature: "Incremental sync is only supported for tables with primary keys"
+  symptom: "A Postgres CDC stream will not run incrementally because the table has
+    no primary key."
+  root_cause: "Airbyte CDC incremental is only supported for tables with primary
+    keys. A heap table has no stable row identity for the destination to apply
+    updates."
+  fix: "Add a primary key on the source table and select it in the stream. If
+    the table cannot have one, set that stream to Full Refresh."
+  verification: "The stream syncs in CDC incremental mode, or a Full Refresh
+    sync completes for the table that has no key."
+  version_range: ""
+  source: "https://docs.airbyte.com/integrations/sources/postgres/postgres-troubleshooting"
+  confidence: 0.7
+  status: reported
+  scope: public
+  tags: [cdc, postgres, primary-key]
+
+- id: airbyte-postgres-views-not-cdc
+  engine: airbyte
+  title: CDC cannot read a view
+  signature: "Data must be in tables and not views"
+  symptom: "A view selected on a CDC Postgres source produces no rows, or the
+    sync rejects it."
+  root_cause: "Logical replication reads tables. A view has no WAL identity, so
+    CDC cannot follow it."
+  fix: "Sync the underlying table with CDC. For the view itself, create a
+    separate connection that uses the Standard replication method."
+  verification: "The table streams under CDC, and the view streams on the
+    Standard connection."
+  version_range: ""
+  source: "https://docs.airbyte.com/integrations/sources/postgres/postgres-troubleshooting"
+  confidence: 0.66
+  status: reported
+  scope: public
+  tags: [cdc, postgres, views]
+
+- id: airbyte-postgres-truncate-not-captured
+  engine: airbyte
+  title: TRUNCATE or ALTER never reaches the destination
+  signature: "TRUNCATE/ALTER will not appear in logs"
+  symptom: "A CDC sync succeeds, but a TRUNCATE or a column change on the source
+    is missing at the destination."
+  root_cause: "Airbyte CDC records INSERT, UPDATE, and DELETE. TRUNCATE and ALTER
+    do not show up as row changes in the WAL stream it reads."
+  fix: "After a TRUNCATE or a column type change, reset the stream and resync.
+    Do not expect the next incremental sync to replay those statements."
+  verification: "After the reset, the destination row count matches the source."
+  version_range: ""
+  source: "https://docs.airbyte.com/integrations/sources/postgres/postgres-troubleshooting"
+  confidence: 0.66
+  status: reported
+  scope: public
+  tags: [cdc, postgres, ddl]
+
+- id: airbyte-postgres-xmin-wraparound
+  engine: airbyte
+  title: Xmin wraparound blocks xmin replication
+  signature: "We detected XMIN transaction wraparound in the database, which makes this sync option inefficient and can lead to higher credit consumption. Please change the replication method to CDC or cursor based."
+  symptom: "The Postgres source check fails and says it detected XMIN transaction
+    wraparound. It tells you to change the replication method."
+  root_cause: "xmin is a 32-bit transaction id. After it wraps, it no longer
+    increases, so Airbyte cannot use it as a cursor and may resync rows it
+    already copied."
+  fix: "Change the replication method to CDC, or use a cursor column. Recreate
+    the streams after the switch so the first run takes a snapshot."
+  verification: "The source check passes and the next sync does not report xmin
+    wraparound."
+  version_range: ""
+  source: "https://docs.airbyte.com/integrations/sources/postgres/postgres-troubleshooting"
+  confidence: 0.64
+  status: reported
+  scope: public
+  tags: [postgres, xmin, cdc]
+
+- id: airbyte-postgres-aurora-wal-cache
+  engine: airbyte
+  title: Aurora logical WAL cache breaks CDC
+  signature: "rds.logical_wal_cache Aurora CDC caching layer incompatible"
+  symptom: "CDC against Aurora PostgreSQL stalls, times out, or falls behind
+    even though the slot exists."
+  root_cause: "Aurora's logical WAL cache is incompatible with Airbyte's CDC
+    reader. Idle write-forwarding sessions can also time out a long sync."
+  fix: "Set rds.logical_wal_cache to 0 in the Aurora parameter group. If syncs
+    still die idle, set apg_write_forward.idle_session_timeout to 1200000."
+  verification: "A CDC sync finishes and the slot's confirmed flush position
+    advances."
+  version_range: ""
+  source: "https://docs.airbyte.com/integrations/sources/postgres/postgres-troubleshooting"
+  confidence: 0.64
+  status: reported
+  scope: public
+  tags: [aurora, cdc, postgres]
+
+- id: airbyte-postgres-timescale-no-cdc
+  engine: airbyte
+  title: TimescaleDB does not support CDC
+  signature: "TimescaleDB does not support CDC replication"
+  symptom: "A CDC connection against TimescaleDB fails at check or never streams
+    changes."
+  root_cause: "TimescaleDB is Postgres compatible but does not support the
+    logical replication path Airbyte CDC uses."
+  fix: "Use the Standard replication method (cursor or xmin) instead of CDC.
+    Do not select Read Changes using Write-Ahead Log for this server."
+  verification: "The source check passes with Standard replication and a sync
+    writes rows."
+  version_range: ""
+  source: "https://docs.airbyte.com/integrations/sources/postgres/postgres-troubleshooting"
+  confidence: 0.66
+  status: reported
+  scope: public
+  tags: [timescale, cdc, postgres]
+
+- id: airbyte-postgres-timescale-compressed-cursor
+  engine: airbyte
+  title: Compressed Timescale column cannot be the cursor
+  signature: "transparent decompression only supports tableoid system column cursor"
+  symptom: "A sync fails with transparent decompression only supports tableoid
+    system column."
+  root_cause: "The chosen cursor sits in a compressed Timescale column. The
+    server cannot filter on it."
+  fix: "Pick a cursor column that is not compressed. A time column stored
+    uncompressed is the usual replacement."
+  verification: "The sync completes and the error does not return."
+  version_range: ""
+  source: "https://docs.airbyte.com/integrations/sources/postgres/postgres-troubleshooting"
+  confidence: 0.68
+  status: reported
+  scope: public
+  tags: [timescale, cursor, postgres]
+
+- id: airbyte-postgres-azure-failover-slot
+  engine: airbyte
+  title: Azure failover drops the CDC slot
+  signature: "CDC replication slot will not be re-created automatically"
+  symptom: "After an Azure Database for PostgreSQL flexible server failover, CDC
+    syncs fail because the replication slot is gone."
+  root_cause: "Azure does not recreate the logical replication slot on the new
+    leader. Airbyte still holds the old slot name and LSN."
+  fix: "Create the replication slot again on the new leader with pgoutput. Then
+    reset the Airbyte connection so it takes a fresh snapshot."
+  verification: "pg_replication_slots lists the slot on the new leader, and the
+    following sync completes."
+  version_range: ""
+  source: "https://docs.airbyte.com/integrations/sources/postgres/postgres-troubleshooting"
+  confidence: 0.64
+  status: reported
+  scope: public
+  tags: [azure, cdc, postgres]
+
+- id: airbyte-postgres-ssl-pg-hba
+  engine: airbyte
+  title: Postgres rejects a non-SSL connection
+  signature: "no pg_hba.conf entry for host"
+  symptom: "The source check fails with FATAL: no pg_hba.conf entry, often
+    mentioning no encryption."
+  root_cause: "The server allows the host only over SSL, and the Airbyte source
+    is connecting with SSL off. Airbyte Cloud expects SSL."
+  fix: "Turn SSL on in the source. Use require or verify-ca. Add certificates
+    when the mode needs them. Airbyte Cloud needs SSL or an SSH tunnel."
+  verification: "The source check succeeds and shows a successful connection."
+  version_range: ""
+  source: "https://docs.airbyte.com/integrations/sources/postgres"
+  confidence: 0.66
+  status: reported
+  scope: public
+  tags: [postgres, ssl, check]
+
+- id: airbyte-postgres-replication-privilege
+  engine: airbyte
+  title: Postgres user cannot create a replication slot
+  signature: "must be superuser or replication role"
+  symptom: "CDC setup fails with SQLSTATE 42501. The user must be a superuser or
+    have the replication role. You see this when you create a replication slot,
+    or when Postgres starts a walsender."
+  root_cause: "The database user has SELECT but not the REPLICATION attribute.
+    Postgres then refuses the replication slot and the walsender."
+  fix: "Run ALTER USER the_user REPLICATION as a superuser. Then create the
+    slot with pg_create_logical_replication_slot and the pgoutput plugin."
+  verification: "The slot exists in pg_replication_slots and the source check
+    passes."
+  version_range: ""
+  source: "https://docs.airbyte.com/integrations/sources/postgres"
+  confidence: 0.7
+  status: reported
+  scope: public
+  tags: [cdc, postgres, privileges]
+
+- id: airbyte-postgres-wal-level
+  engine: airbyte
+  title: wal_level is not logical
+  signature: "logical decoding requires wal_level logical"
+  symptom: "Creating the CDC slot fails because logical decoding requires
+    wal_level logical."
+  root_cause: "The server is on wal_level replica or minimal, so Postgres will
+    not decode WAL for a logical slot."
+  fix: "Set wal_level to logical and restart Postgres. Also raise
+    max_replication_slots and max_wal_senders above zero. Then create the slot."
+  verification: "SHOW wal_level returns logical, and the slot create statement
+    succeeds."
+  version_range: ""
+  source: "https://docs.airbyte.com/integrations/sources/postgres"
+  confidence: 0.7
+  status: reported
+  scope: public
+  tags: [cdc, postgres, wal]
+
+- id: airbyte-postgres-publication-missing
+  engine: airbyte
+  title: Publication does not exist
+  signature: "publication does not exist pgoutput airbyte_publication"
+  symptom: "CDC fails with publication does not exist, or a selected table never
+    emits changes."
+  root_cause: "The publication name in the source does not match a publication
+    on the server, or the table was never added to it. A table selected in
+    Airbyte but absent from the publication is not replicated."
+  fix: "Create the publication for the tables you sync, for example CREATE
+    PUBLICATION airbyte_publication FOR TABLE the tables. Put that exact name in
+    the source. Add new tables to the publication before enabling them."
+  verification: "pg_publication_tables lists the synced tables, and the next CDC
+    sync returns their changes."
+  version_range: ""
+  source: "https://docs.airbyte.com/integrations/sources/postgres"
+  confidence: 0.68
+  status: reported
+  scope: public
+  tags: [cdc, postgres, publication]
+
+- id: airbyte-oauth-invalid-grant
+  engine: airbyte
+  title: OAuth refresh token is no longer valid
+  signature: "invalid_grant"
+  symptom: "A source check or sync fails with invalid_grant, or says the refresh
+    token expired or was revoked."
+  root_cause: "The OAuth grant was revoked, the refresh token expired, or the
+    user changed the password. Airbyte cannot mint a new access token."
+  fix: "Re-authenticate the source in Airbyte so a new refresh token is stored.
+    In the provider, confirm the OAuth app still has the scopes the connector
+    asks for. Do not paste an expired access token into the form."
+  verification: "The source check succeeds after re-authentication and a sync
+    reads records."
+  version_range: ""
+  source: "https://docs.airbyte.com/platform/using-airbyte/oauth"
+  confidence: 0.66
+  status: reported
+  scope: public
+  tags: [oauth, credentials, check]
+
+- id: airbyte-sync-disabled-repeated-failures
+  engine: airbyte
+  title: Connection disabled after repeated failures
+  signature: "Sync Disabled - Repeated Failures. A connection was automatically disabled due to repeated failures."
+  symptom: "The connection no longer runs. Airbyte disables it after 30 failed
+    runs in a row and 7 days with no success."
+  root_cause: "Airbyte turns the connection off after that many failures so a
+    broken sync does not keep running."
+  fix: "Read the last failed job and fix that error first. Then re-enable the
+    connection. Clicking sync alone leaves it disabled if the underlying failure
+    is still there."
+  verification: "The connection shows enabled and the next manual sync succeeds."
+  version_range: ""
+  source: "https://docs.airbyte.com/platform/cloud/managing-airbyte-cloud/manage-airbyte-cloud-notifications"
+  confidence: 0.62
+  status: reported
+  scope: public
+  tags: [connection, sync, failures]
+
+- id: airbyte-cdc-slot-one-destination
+  engine: airbyte
+  title: Two connections share one CDC slot
+  signature: "only part of the data available in the replication slot"
+  symptom: "Two destinations fed from one CDC Postgres source each receive only
+    some of the changes, or one of them skips ahead."
+  root_cause: "One logical slot has one consumer position. A second Airbyte
+    connection reading the same slot advances the LSN for both, so each
+    destination sees only part of the stream."
+  fix: "Give each Airbyte connection its own replication slot and publication.
+    Do not point two sources at airbyte_slot."
+  verification: "Each slot has one active consumer, and each destination receives
+    a full incremental sync."
+  version_range: ""
+  source: "https://docs.airbyte.com/integrations/sources/postgres/postgres-troubleshooting"
+  confidence: 0.66
+  status: reported
+  scope: public
+  tags: [cdc, postgres, slot]
+
+- id: airbyte-postgres-jdbc-params-overwritten
+  engine: airbyte
+  title: JDBC URL parameters are overwritten
+  signature: "JDBC URL parameters overwritten currentSchema user password ssl sslmode"
+  symptom: "Extra JDBC parameters seem to do nothing, or SSL and user settings
+    in that field are ignored."
+  root_cause: "Airbyte builds the JDBC URL itself and overwrites currentSchema,
+    user, password, ssl, and sslmode. Values for those keys in the advanced
+    field never win."
+  fix: "Set user, password, schema, and SSL in the source form fields. Use the
+    JDBC URL parameters field only for other keys, as key=value pairs joined by
+    &."
+  verification: "The source check uses the form credentials, and a deliberate
+    typo in the overwritten keys does not change the connection."
+  version_range: ""
+  source: "https://docs.airbyte.com/integrations/sources/postgres/postgres-troubleshooting"
+  confidence: 0.64
+  status: reported
+  scope: public
+  tags: [postgres, jdbc, config]

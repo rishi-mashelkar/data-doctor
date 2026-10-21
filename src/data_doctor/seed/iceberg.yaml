@@ -23,14 +23,14 @@
 - id: iceberg-add-required-column
   engine: iceberg
   title: Cannot add a required column to an existing table
-  signature: "Incompatible change cannot add required column schema evolution not optional"
-  symptom: "A schema change fails because a required, non-null column cannot be
-    added to an existing table."
-  root_cause: "Existing rows have no value for a new required column, so Iceberg
-    refuses it to keep reads safe."
+  signature: "IllegalArgumentException Incompatible change cannot add required column without a default value"
+  symptom: "ALTER TABLE ADD COLUMN fails with IllegalArgumentException. Iceberg
+    rejects a required column that has no default value."
+  root_cause: "Existing rows have no value for a new required column. Iceberg
+    refuses the add unless you pass a default value or allow incompatible changes."
   fix: "Add the column as optional, backfill values, then tighten the constraint if
-    your engine supports it. Design new columns as optional for forward
-    compatibility."
+    your engine supports it. A required column is allowed when the add also sets
+    a default value. Design new columns as optional for forward compatibility."
   verification: "ALTER TABLE adds the optional column and a read of old files
     returns null for it without error."
   version_range: ""
@@ -64,12 +64,12 @@
 - id: iceberg-stale-metadata-after-expire
   engine: iceberg
   title: FileNotFound after expiring snapshots
-  signature: "FileNotFoundException data file not found after expire_snapshots stale metadata"
-  symptom: "Reads fail with a missing data or manifest file after a maintenance
-    job."
-  root_cause: "A reader or a cached metadata pointer still references files that
-    expire_snapshots or remove_orphan_files deleted. A stale metadata pointer in
-    the catalog can also point at a removed file."
+  signature: "NotFoundException File does not exist FileNotFoundException data file after expire_snapshots"
+  symptom: "A read fails with NotFoundException. Iceberg says the data file does
+    not exist after snapshot expiry."
+  root_cause: "expire_snapshots or remove_orphan_files deleted a data file that a
+    reader still references. A stale metadata pointer in the catalog can also name
+    a removed file. A missing manifest is a different failure."
   fix: "Refresh the table so the reader loads the current metadata. Confirm the
     catalog metadata pointer is current. Schedule expiry and orphan cleanup with a
     retention window longer than your longest running read, so live queries never
@@ -86,9 +86,9 @@
 - id: iceberg-write-schema-mismatch
   engine: iceberg
   title: Cannot write incompatible data to table
-  signature: "Cannot write incompatible data to table field type mismatch missing column schema"
-  symptom: "A write fails because the DataFrame schema does not match the table
-    schema."
+  signature: "IllegalArgumentException Cannot write incompatible dataset to table with schema"
+  symptom: "A write fails with IllegalArgumentException. Iceberg cannot write the
+    incompatible dataset to the table schema."
   root_cause: "A column type differs, a required column is missing, or the columns
     are matched by position when the order differs. Iceberg checks the write
     against the table schema to keep reads safe."
@@ -104,3 +104,377 @@
   status: reported
   scope: public
   tags: [write, schema, types]
+
+- id: iceberg-commit-state-unknown
+  engine: iceberg
+  title: CommitStateUnknownException - commit outcome is unknown
+  signature: "CommitStateUnknownException Cannot determine whether the commit was successful Retrying an already successful operation duplicate records"
+  symptom: "A write fails with CommitStateUnknownException and says to check
+    whether the commit succeeded before retrying."
+  root_cause: "The catalog connection dropped during the commit. The snapshot may
+    have landed. A blind retry can append the same files twice. This is not a
+    CommitFailedException, and raising the commit retry count does not answer it."
+  fix: "Read the table history and see if the new snapshot is there. If it is,
+    do not rerun the write. If it is not, rerun once the catalog answers again.
+    commit.status-check.num-retries controls how many times Iceberg checks before
+    it gives up."
+  verification: "The snapshots table shows one new snapshot for the write, and
+    a second attempt is not started while that snapshot exists."
+  version_range: ""
+  source: "https://iceberg.apache.org/docs/latest/reliability/"
+  confidence: 0.66
+  status: reported
+  scope: public
+  tags: [commits, catalog, retry]
+
+- id: iceberg-type-promotion-rejected
+  engine: iceberg
+  title: Cannot change a column to a narrower type
+  signature: "IllegalArgumentException Cannot change column type incompatible promotion"
+  symptom: "An ALTER that changes a column type fails with IllegalArgumentException.
+    The message is Cannot change column type."
+  root_cause: "Iceberg only widens primitive types in place. int to long, float
+    to double, and a decimal whose precision grows while the scale stays the same
+    are allowed. Narrowing, or a change such as string to int, is rejected so old
+    files stay readable."
+  fix: "Add a new optional column of the target type, backfill it, and read from
+    that column. Do not drop the old column and add the same name back if you
+    still need the old values. A new column gets a new field id and does not see
+    the old data."
+  verification: "An allowed ALTER, such as int to bigint, succeeds, and a read of
+    an old snapshot still returns the column."
+  version_range: ""
+  source: "https://iceberg.apache.org/docs/latest/spark-ddl/"
+  confidence: 0.7
+  status: reported
+  scope: public
+  tags: [schema-evolution, types]
+
+- id: iceberg-hive-metastore-column-shift
+  engine: iceberg
+  title: Hive metastore rejects a column add or drop
+  signature: "InvalidOperationException columns have types incompatible with the existing columns in their respective positions MetaException hive.metastore.disallow.incompatible.col.type.changes"
+  symptom: "ALTER TABLE on a Hive catalog fails with InvalidOperationException.
+    Hive says columns have types incompatible with the existing columns in their
+    respective positions."
+  root_cause: "Hive Metastore compares types by position. The check
+    hive.metastore.disallow.incompatible.col.type.changes defaults to true, so a
+    shift that Iceberg field ids allow still fails in the metastore."
+  fix: "Set hive.metastore.disallow.incompatible.col.type.changes to false on the
+    Hive Metastore. For an embedded metastore, pass
+    spark.hadoop.hive.metastore.disallow.incompatible.col.type.changes=false.
+    After that, Hive itself can misread the table, so use Spark for reads."
+  verification: "The ALTER succeeds through the Hive catalog and a Spark SELECT
+    lists the columns in the new order."
+  version_range: ""
+  source: "https://iceberg.apache.org/docs/latest/spark-ddl/"
+  confidence: 0.64
+  status: reported
+  scope: public
+  tags: [hive, schema-evolution, catalog]
+
+- id: iceberg-no-such-namespace
+  engine: iceberg
+  title: NoSuchNamespaceException - namespace was never created
+  signature: "NoSuchNamespaceException Namespace does not exist CREATE NAMESPACE"
+  symptom: "CREATE TABLE or a query fails with NoSuchNamespaceException even
+    though the catalog itself is configured."
+  root_cause: "The namespace under the catalog was never created. A table of the
+    same name in another catalog does not count."
+  fix: "Create the namespace in the same catalog you write to, for example CREATE
+    NAMESPACE catalog.db, then create the table with the full name. List
+    namespaces to confirm the catalog you configured is the one that answers."
+  verification: "SHOW NAMESPACES IN the catalog lists the namespace, and CREATE
+    TABLE with the full name succeeds."
+  version_range: ""
+  source: "https://iceberg.apache.org/docs/latest/spark-configuration/"
+  confidence: 0.68
+  status: reported
+  scope: public
+  tags: [catalog, namespace]
+
+- id: iceberg-merge-needs-extensions
+  engine: iceberg
+  title: MERGE INTO is not supported without the Spark extensions
+  signature: "UnsupportedOperationException MERGE INTO TABLE is not supported temporarily IcebergSparkSessionExtensions"
+  symptom: "MERGE INTO fails with UnsupportedOperationException: MERGE INTO TABLE
+    is not supported temporarily."
+  root_cause: "Spark parsed MERGE with its own planner because
+    IcebergSparkSessionExtensions was not installed, or the target is not an
+    Iceberg table. The extensions have to be set before the session starts."
+  fix: "Set spark.sql.extensions to
+    org.apache.iceberg.spark.extensions.IcebergSparkSessionExtensions and start
+    a new session. Confirm the target is Iceberg, not a Hive or Parquet table of
+    the same name."
+  verification: "MERGE INTO runs and a new snapshot appears in the table
+    history."
+  version_range: ""
+  source: "https://iceberg.apache.org/docs/latest/spark-writes/"
+  confidence: 0.72
+  status: reported
+  scope: public
+  tags: [merge, spark, extensions]
+
+- id: iceberg-rest-unauthorized
+  engine: iceberg
+  title: REST catalog returns 401
+  signature: "NotAuthorizedException HTTP 401 Unauthorized bearer token"
+  symptom: "A catalog call fails with NotAuthorizedException and HTTP 401
+    Unauthorized."
+  root_cause: "The bearer token or credential is missing, expired, or not the
+    one the REST catalog expects. This is an auth rejection, not a missing AWS
+    credentials chain."
+  fix: "Set the catalog credential or token property and refresh the token.
+    Confirm the client sends Authorization: Bearer. Check clock skew if the token
+    is still inside its lifetime on your machine."
+  verification: "A namespace list against the same catalog URI succeeds."
+  version_range: ""
+  source: "https://iceberg.apache.org/docs/latest/rest-catalog/"
+  confidence: 0.66
+  status: reported
+  scope: public
+  tags: [rest, auth, catalog]
+
+- id: iceberg-s3fileio-class
+  engine: iceberg
+  title: S3FileIO class is not on the classpath
+  signature: "IllegalArgumentException Cannot initialize FileIO org.apache.iceberg.aws.s3.S3FileIO iceberg-aws ClassNotFoundException"
+  symptom: "Iceberg fails to initialize FileIO for
+    org.apache.iceberg.aws.s3.S3FileIO. The cause is ClassNotFoundException or a
+    missing constructor."
+  root_cause: "The iceberg-aws jar that matches this Iceberg version is not on
+    the classpath. The Spark runtime jar and a separate iceberg-aws build often
+    disagree."
+  fix: "Add iceberg-aws at the same version as iceberg-spark, plus the AWS SDK
+    bundle if the runtime jar does not already include it. Set io-impl to
+    org.apache.iceberg.aws.s3.S3FileIO only after that jar loads."
+  verification: "A read of an s3 table through that catalog returns rows."
+  version_range: ""
+  source: "https://iceberg.apache.org/docs/latest/aws/"
+  confidence: 0.68
+  status: reported
+  scope: public
+  tags: [aws, s3, classpath]
+
+- id: iceberg-snapshot-expired
+  engine: iceberg
+  title: Time travel snapshot id is gone
+  signature: "IllegalArgumentException Cannot find snapshot older than VERSION AS OF"
+  symptom: "TIMESTAMP AS OF or VERSION AS OF fails with IllegalArgumentException:
+    Cannot find snapshot, or cannot find a snapshot older than the timestamp."
+  root_cause: "expire_snapshots removed that snapshot, or the id never belonged
+    to this table. A missing data file after expiry is a different failure."
+  fix: "Query the snapshots metadata table and pick an id that is still listed.
+    If readers still need older snapshots, raise the retention window before the
+    next expiry. You cannot time travel to a snapshot that was removed."
+  verification: "VERSION AS OF a listed snapshot id returns rows."
+  version_range: ""
+  source: "https://iceberg.apache.org/docs/latest/spark-queries/"
+  confidence: 0.68
+  status: reported
+  scope: public
+  tags: [snapshots, time-travel]
+
+- id: iceberg-format-v1-deletes
+  engine: iceberg
+  title: Row level deletes need format version 2
+  signature: "IllegalArgumentException Deletes are supported in V2 and above row level deletes format-version 2"
+  symptom: "A row level delete fails on a format version 1 table. Iceberg says
+    deletes are supported in V2 and above."
+  root_cause: "Format version 1 cannot store delete files. Equality deletes and
+    position deletes need format version 2."
+  fix: "ALTER TABLE the table SET TBLPROPERTIES ('format-version'='2'), then
+    retry the delete. Existing data files stay valid. Do not add a required
+    column as a substitute for a delete."
+  verification: "The table property format-version is 2, and the DELETE commits
+    a snapshot."
+  version_range: ""
+  source: "https://iceberg.apache.org/spec/"
+  confidence: 0.66
+  status: reported
+  scope: public
+  tags: [deletes, format, evolution]
+
+- id: iceberg-identifier-field-required
+  engine: iceberg
+  title: Identifier field is not required
+  signature: "IllegalArgumentException identifier field must be required not a required field"
+  symptom: "Setting an identifier field fails because the field is optional."
+  root_cause: "Iceberg identifier fields are the columns used for equality
+    deletes and row identity. Each one has to be required, so a null cannot hide
+    a row."
+  fix: "Backfill nulls, alter the column to required, then set the identifier
+    fields. Leave the column optional if you cannot guarantee a value."
+  verification: "The schema shows the field as required and as an identifier
+    field."
+  version_range: ""
+  source: "https://iceberg.apache.org/docs/latest/spark-ddl/"
+  confidence: 0.64
+  status: reported
+  scope: public
+  tags: [schema, identifier]
+
+- id: iceberg-partition-spec-incompatible
+  engine: iceberg
+  title: Commit cannot find the partition spec
+  signature: "IllegalArgumentException Cannot find partition spec for data file"
+  symptom: "A commit fails with IllegalArgumentException. Iceberg cannot find
+    the partition spec for a data file."
+  root_cause: "The data file names a spec id that table metadata does not
+    contain. The writer used a spec from another table, or a spec that was
+    removed."
+  fix: "Refresh the table and write files with a spec id the table still lists.
+    Read the partition specs metadata table before the job plans files. Do not
+    reuse data files from another table."
+  verification: "The commit succeeds and the data file spec id is listed in the
+    table specs."
+  version_range: ""
+  source: "https://iceberg.apache.org/docs/latest/evolution/"
+  confidence: 0.62
+  status: reported
+  scope: public
+  tags: [partitions, commit]
+
+- id: iceberg-branch-missing
+  engine: iceberg
+  title: Branch or tag name does not exist
+  signature: "ValidationException branch does not exist reference name createBranch"
+  symptom: "A read or write on a branch fails. Iceberg says the branch or
+    reference name does not exist."
+  root_cause: "VERSION AS OF or the branch identifier names a ref that was never
+    created, or was dropped. A tag is not a branch."
+  fix: "List refs in the refs metadata table. Create the branch with
+    ALTER TABLE ... CREATE BRANCH, or CALL catalog.system.createBranch, from an
+    existing snapshot. Then point the read at that name."
+  verification: "The refs table lists the branch, and a read of that branch
+    returns rows."
+  version_range: ""
+  source: "https://iceberg.apache.org/docs/latest/branching/"
+  confidence: 0.66
+  status: reported
+  scope: public
+  tags: [branches, refs]
+
+- id: iceberg-rest-config-load
+  engine: iceberg
+  title: REST catalog config endpoint does not load
+  signature: "RESTException Failed to load config v1/config catalog uri"
+  symptom: "The session fails at startup with RESTException: failed to load
+    config from the v1/config endpoint."
+  root_cause: "The catalog URI is wrong, the server is down, or the URI already
+    includes /v1/config and the client appends it again. The warehouse property
+    may also disagree with the server."
+  fix: "Point the catalog uri at the catalog root. The client calls /v1/config
+    itself. Confirm the host answers and the warehouse value matches the catalog
+    you were given."
+  verification: "A GET of the uri plus /v1/config returns JSON, and the Spark
+    session loads the catalog."
+  version_range: ""
+  source: "https://iceberg.apache.org/docs/latest/rest-protocol/"
+  confidence: 0.64
+  status: reported
+  scope: public
+  tags: [rest, catalog, config]
+
+- id: iceberg-aws-credentials-missing
+  engine: iceberg
+  title: AWS credential chain finds nothing
+  signature: "SdkClientException Unable to load credentials DefaultCredentialsProvider"
+  symptom: "An S3 or Glue call fails with SdkClientException: Unable to load
+    credentials from the default provider chain."
+  root_cause: "No environment keys, profile, or instance role is visible to the
+    executors. A 401 from a REST catalog is a different error."
+  fix: "Give the executors credentials. On EC2 or EKS that is an instance or
+    service role. Locally, set the profile or keys in the environment the driver
+    and executors both see. Set the catalog client.region if the region is not
+    in the provider chain."
+  verification: "The same job lists the bucket and loads the table."
+  version_range: ""
+  source: "https://iceberg.apache.org/docs/latest/aws/"
+  confidence: 0.66
+  status: reported
+  scope: public
+  tags: [aws, credentials]
+
+- id: iceberg-procedure-missing
+  engine: iceberg
+  title: System procedure was not found
+  signature: "NoSuchProcedureException Procedure not found expire_snapshots catalog.system rewrite_data_files"
+  symptom: "CALL catalog.system.expire_snapshots, or rewrite_data_files, fails
+    with NoSuchProcedureException. The procedure was not found."
+  root_cause: "The call omitted the catalog, the extensions are not loaded, or
+    the procedure name does not match that Iceberg version. Procedures live on
+    catalog.system, not as SQL functions."
+  fix: "Load IcebergSparkSessionExtensions, then CALL
+    catalog.system.expire_snapshots with the table name. Use the catalog name
+    from the session, not the word catalog, unless that is really its name."
+  verification: "The CALL returns and the table history shows the maintenance
+    snapshot."
+  version_range: ""
+  source: "https://iceberg.apache.org/docs/latest/spark-procedures/"
+  confidence: 0.64
+  status: reported
+  scope: public
+  tags: [procedures, maintenance]
+
+- id: iceberg-manifest-unreadable
+  engine: iceberg
+  title: Manifest avro file cannot be opened
+  signature: "RuntimeIOException NotFoundException Failed to open input stream for file manifest avro"
+  symptom: "A scan fails while opening a manifest. Iceberg says it failed to
+    open the input stream for the avro file."
+  root_cause: "The metadata pointer names a manifest the process cannot read.
+    The object is gone, the path is wrong, or the credentials used for metadata
+    differ from the ones used to commit."
+  fix: "Open that metadata path with the same credentials as the job. If the
+    file is gone, point the catalog at a metadata.json that still has its
+    manifests. Do not expire snapshots while a reader is using them."
+  verification: "The scan reads the manifest and returns rows."
+  version_range: ""
+  source: "https://iceberg.apache.org/docs/latest/maintenance/"
+  confidence: 0.6
+  status: reported
+  scope: public
+  tags: [metadata, manifests, io]
+
+- id: iceberg-void-partition-field
+  engine: iceberg
+  title: Void transform is not supported
+  signature: "UnsupportedOperationException Void transform is not supported v1 partition field"
+  symptom: "A read or describe fails with UnsupportedOperationException. The
+    message is Void transform is not supported."
+  root_cause: "On a format version 1 table, dropping a partition field does not
+    delete it. Iceberg replaces the transform with void. A visitor that does not
+    implement void then fails. Old data files still name that field."
+  fix: "Read the table with a client that supports the void transform. The
+    dropped field is already void on a v1 table. Keep that field if an older
+    reader still scans the table. Format version 2 does not rewrite the spec."
+  verification: "The current spec shows the field as void, and a new write
+    commits."
+  version_range: ""
+  source: "https://iceberg.apache.org/spec/"
+  confidence: 0.64
+  status: reported
+  scope: public
+  tags: [partitions, evolution]
+
+- id: iceberg-catalog-impl-missing
+  engine: iceberg
+  title: Catalog has no type or catalog-impl
+  signature: "IllegalArgumentException Cannot initialize Catalog catalog-impl or type must be set"
+  symptom: "The session fails with IllegalArgumentException: Cannot initialize
+    Catalog, because catalog-impl or type is not set."
+  root_cause: "spark.sql.catalog.NAME is set to an Iceberg catalog class, but
+    neither type nor catalog-impl is set. Iceberg cannot tell whether you wanted
+    hive, hadoop, rest, glue, or a custom class."
+  fix: "Set spark.sql.catalog.NAME.type to hive, hadoop, rest, or glue, and set
+    the warehouse or uri that type needs. Use catalog-impl only for a custom
+    Catalog class. This is not the S3 FileIO init failure."
+  verification: "SHOW NAMESPACES IN the catalog returns, and the session log
+    names the catalog type."
+  version_range: ""
+  source: "https://iceberg.apache.org/docs/latest/spark-configuration/"
+  confidence: 0.68
+  status: reported
+  scope: public
+  tags: [catalog, config]

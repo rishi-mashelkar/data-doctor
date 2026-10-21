@@ -6,7 +6,7 @@ readme = "README.md"
 requires-python = ">=3.12"
 license = { text = "Apache-2.0" }
 authors = [{ name = "Rishi Mashelkar" }]
-keywords = ["data-engineering", "airflow", "dbt", "spark", "iceberg", "troubleshooting", "observability"]
+keywords = ["data-engineering", "airflow", "airbyte", "dbt", "spark", "iceberg", "troubleshooting", "observability"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",

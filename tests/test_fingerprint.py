@@ -20,4 +20,5 @@ def test_detects_engine():
     assert detect_engine("org.apache.spark.SparkException executor lost") == "spark"
     assert detect_engine("NoSuchTableException iceberg catalog") == "iceberg"
     assert detect_engine("Broken DAG scheduler dagbag import") == "airflow"
+    assert detect_engine("Airbyte sync failed: saved offset is before confirmed_flush_lsn") == "airbyte"
     assert detect_engine("some unrelated text") == "other"

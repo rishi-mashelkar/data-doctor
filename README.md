@@ -8,7 +8,7 @@ the fix and tell data-doctor if it worked. The bank gets better with every corre
 
 It is not another model that guesses at your stack trace. It is a curated,
 version-aware bank for data engineering, with an instant local match that runs
-offline. It covers Airflow, dbt, Spark, Iceberg, and DuckDB.
+offline. It covers Airflow, Airbyte, dbt, Spark, Iceberg, and DuckDB.
 
 Status: early. It diagnoses and suggests. It never changes your systems. A fix can
 carry a reproduction that data-doctor runs in a sandbox to mark it verified.

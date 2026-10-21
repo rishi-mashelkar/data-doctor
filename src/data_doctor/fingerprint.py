@@ -28,6 +28,7 @@ _EXCEPTION = re.compile(r"\b([A-Z][A-Za-z0-9]*(?:Error|Exception|Warning|Failure
 
 _ENGINE_HINTS = {
     "airflow": ("airflow", "dag ", "dagbag", "scheduler", "executor", "task_instance", "mwaa"),
+    "airbyte": ("airbyte", "confirmed_flush_lsn", "temp_file_limit"),
     "dbt": ("dbt", "compilation error", "profiles.yml", "dbt_project", "ref(", "source(", "macro"),
     "spark": ("spark", "pyspark", "py4j", "executor lost", "analysisexception", "sparkcontext"),
     "iceberg": ("iceberg", "snapshot", "nosuchtable", "manifest", "metadata.json"),

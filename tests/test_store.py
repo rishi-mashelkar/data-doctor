@@ -26,7 +26,12 @@ def test_feedback_moves_confidence_and_marks_verified(tmp_path):
 
 def test_seed_loads_and_stats(tmp_path):
     with Bank(home=tmp_path) as bank:
-        n = bank.upsert_many(load_seed())
+        entries = load_seed()
+        ids = [e.id for e in entries]
+        assert len(ids) == len(set(ids))
+        assert len(entries) >= 100
+        assert all(e.status == "reported" or e.repro for e in entries)
+        n = bank.upsert_many(entries)
         assert n >= 16
         s = bank.stats()
         assert s["total"] == n

@@ -21,18 +21,18 @@
 - id: dbt-relation-does-not-exist
   engine: dbt
   title: Database Error - relation does not exist
-  signature: "Database Error relation does not exist does not exist table not found"
-  symptom: "A model or test fails because a relation it reads does not exist in the
-    warehouse."
-  root_cause: "The upstream model has not been built in the target schema, the
-    source points at the wrong schema, or the role lacks grants to see it."
+  signature: "does not exist or not authorized"
+  symptom: "A Snowflake model fails because the object does not exist or the role
+    is not authorized to see it."
+  root_cause: "The upstream model has not been built in that database and schema,
+    the name is wrong, or the role lacks usage and select."
   fix: "Build upstream first with dbt run --select +<model>. Confirm the source and
     target schema in the profile match where the table actually lives. Check the
     warehouse role has usage and select on that schema."
   verification: "Query the relation directly as the dbt role, then dbt run --select
     <model> succeeds."
   version_range: ""
-  source: "https://docs.getdbt.com/docs/build/sources"
+  source: "https://docs.getdbt.com/guides/debug-errors"
   confidence: 0.68
   status: reported
   scope: public
@@ -41,7 +41,7 @@
 - id: dbt-profile-not-found
   engine: dbt
   title: Could not find profile named X
-  signature: "Runtime Error Could not find profile named profiles.yml dbt_project"
+  signature: "Could not find profile named"
   symptom: "dbt fails at startup saying it could not find the named profile."
   root_cause: "The profile key in dbt_project.yml does not match a profile in
     profiles.yml, or profiles.yml is not on the search path."
@@ -50,7 +50,7 @@
     DBT_PROFILES_DIR. Run dbt debug to see which file dbt loaded."
   verification: "dbt debug reports the profile and a successful connection."
   version_range: ""
-  source: "https://docs.getdbt.com/docs/core/connect-data-platform/connection-profiles"
+  source: "https://docs.getdbt.com/guides/debug-errors"
   confidence: 0.75
   status: reported
   scope: public
@@ -78,7 +78,7 @@
 - id: dbt-duplicate-model-name
   engine: dbt
   title: Compilation Error - two resources with the same name
-  signature: "Compilation Error dbt found two models with the name duplicate resource name"
+  signature: "dbt found two models with the name"
   symptom: "dbt fails to parse because two models, or two resources, share the same
     name."
   root_cause: "dbt requires resource names to be unique across the whole project,
@@ -88,8 +88,428 @@
     confirm."
   verification: "dbt parse succeeds with no duplicate-name error."
   version_range: ""
-  source: "https://docs.getdbt.com/reference/resource-properties/resource-path"
+  source: "https://docs.getdbt.com/faqs/Project/unique-resource-names"
   confidence: 0.72
   status: reported
   scope: public
   tags: [compile, naming]
+
+- id: dbt-dag-cycle
+  engine: dbt
+  title: Found a cycle in the model graph
+  signature: "Found a cycle model ref depends on itself"
+  symptom: "dbt fails at parse time with Found a cycle and a chain of model names
+    that loops back."
+  root_cause: "Two or more refs form a loop. A model refs another that refs it
+    back, sometimes through a macro or a hook that calls ref on the same model."
+  fix: "Break the loop. Point one side at a source instead of a ref, or split the
+    shared logic so the edges only go one way. In a hook that builds on the
+    current model, use this instead of ref of the same model."
+  verification: "dbt parse succeeds and the cycle message is gone."
+  version_range: ""
+  source: "https://docs.getdbt.com/guides/debug-errors"
+  confidence: 0.7
+  status: reported
+  scope: public
+  tags: [compile, ref, graph]
+
+- id: dbt-contract-mismatch
+  engine: dbt
+  title: Enforced model contract failed
+  signature: "Compilation Error enforced contract that failed data_type mismatch_reason assert_columns_equivalent"
+  symptom: "dbt compile fails saying the model has an enforced contract that
+    failed, and prints a column whose type does not match."
+  root_cause: "contract.enforced is true, so the columns the model returns must
+    match the YAML name and data_type. A cast, a missing column, or an extra
+    column fails the check."
+  fix: "Make the SQL and the YAML list the same columns, with data_type values
+    the warehouse accepts. dbt aliases common names such as string. Set
+    alias_types to false if you need the warehouse type written exactly as you
+    typed it. On an incremental model, set on_schema_change to append_new_columns
+    or fail."
+  verification: "dbt build --select the model runs and the contract table in the
+    error is gone."
+  version_range: ">=1.5"
+  source: "https://docs.getdbt.com/reference/resource-configs/contract"
+  confidence: 0.72
+  status: reported
+  scope: public
+  tags: [contract, schema, compile]
+
+- id: dbt-env-var-missing
+  engine: dbt
+  title: Env var required but not provided
+  signature: "Env var required but not provided"
+  symptom: "dbt stops at parse with Env var required but not provided and the
+    variable name."
+  root_cause: "A Jinja env_var call has no default, and that variable is not set
+    in the shell, the job environment, or a .env file dbt loaded."
+  fix: "Export the variable before the dbt command, or add a second argument to
+    env_var as the default. Quote the whole Jinja string in YAML. Do not commit
+    secret values. Use a default only when a missing value is safe."
+  verification: "dbt parse completes and dbt debug shows the profile rendered
+    with the variable set."
+  version_range: ""
+  source: "https://docs.getdbt.com/docs/build/environment-variables"
+  confidence: 0.74
+  status: reported
+  scope: public
+  tags: [env, parse, profiles]
+
+- id: dbt-utils-surrogate-key-replaced
+  engine: dbt
+  title: dbt_utils.surrogate_key has been replaced
+  signature: "The new macro treats null values differently to empty strings"
+  symptom: "After a dbt_utils upgrade, compile fails or warns that surrogate_key
+    has been replaced by generate_surrogate_key."
+  root_cause: "dbt_utils 1.0 removed the old macro. The new one treats null and
+    an empty string as different values, so existing keys can change."
+  fix: "Replace dbt_utils.surrogate_key with dbt_utils.generate_surrogate_key and
+    pass one list of columns. To keep the old null behavior, set
+    surrogate_key_treat_nulls_as_empty_strings true under vars in dbt_project.yml.
+    Do that when the keys are already stored in incremental models or snapshots."
+  verification: "dbt compile no longer mentions surrogate_key. A sample key
+    matches the previous value if you kept the old null behavior."
+  version_range: ""
+  source: "https://docs.getdbt.com/docs/dbt-versions/dbt-upgrade/Older%20versions/upgrading-to-dbt-utils-v1.0"
+  confidence: 0.7
+  status: reported
+  scope: public
+  tags: [packages, macros]
+
+- id: dbt-snowflake-nondeterministic-merge
+  engine: dbt
+  title: Snowflake merge fails as nondeterministic
+  signature: "Duplicate row detected during DML action"
+  symptom: "An incremental model on Snowflake fails during merge. The warehouse
+    reports a nondeterministic merge or a duplicate row detected during the DML
+    action."
+  root_cause: "The merge strategy updates by unique_key. Snowflake rejects the
+    statement when that key matches more than one source row."
+  fix: "Deduplicate the source so unique_key is one row, or set
+    incremental_strategy to delete+insert. Confirm the key has no nulls, because
+    null keys fail to match and insert extra rows."
+  verification: "dbt run --select the model completes, and a count of the
+    unique_key equals a count of distinct values."
+  version_range: ""
+  source: "https://docs.getdbt.com/reference/resource-configs/snowflake-configs"
+  confidence: 0.68
+  status: reported
+  scope: public
+  tags: [incremental, snowflake, merge]
+
+- id: dbt-packages-not-installed
+  engine: dbt
+  title: packages.yml lists packages that are not installed
+  signature: "Run \"dbt deps\" to install package dependencies"
+  symptom: "dbt stops before parse and says it found packages in packages.yml but
+    only zero are installed in dbt_packages."
+  root_cause: "deps has not been run in this checkout, or dbt_packages was
+    deleted. A fresh clone does not include installed packages."
+  fix: "Run dbt deps from the project root. That installs the packages in
+    packages.yml into dbt_packages and writes package-lock.yml. Commit the lock
+    file if you want the same revisions next time."
+  verification: "dbt deps prints Installed, and dbt parse no longer reports
+    uninstalled packages."
+  version_range: ""
+  source: "https://docs.getdbt.com/reference/commands/deps"
+  confidence: 0.72
+  status: reported
+  scope: public
+  tags: [packages, deps]
+
+- id: dbt-selection-no-nodes
+  engine: dbt
+  title: Selection matches no enabled nodes
+  signature: "does not match any enabled nodes"
+  symptom: "dbt run or build prints that the selection criterion does not match
+    any enabled nodes, then Nothing to do."
+  root_cause: "The --select value does not match a resource name, the model is
+    disabled, or the name includes .sql. Selection is case sensitive and uses the
+    resource name, not the file path."
+  fix: "Run dbt ls --select the same argument and compare it to dbt ls. Drop the
+    .sql suffix. Check enabled is true. Quote selectors that contain plus or star
+    so the shell does not eat them."
+  verification: "dbt ls --select the same argument lists the nodes, and the run
+    builds them."
+  version_range: ""
+  source: "https://docs.getdbt.com/reference/global-configs/warnings"
+  confidence: 0.7
+  status: reported
+  scope: public
+  tags: [selection, cli]
+
+- id: dbt-unused-config-paths
+  engine: dbt
+  title: dbt_project.yml has config paths that match nothing
+  signature: "Configuration paths exist in your dbt_project.yml file which do not apply to any resources"
+  symptom: "Parse warns that configuration paths in dbt_project.yml do not apply
+    to any resources, and lists the unused paths."
+  root_cause: "A models, seeds, or tests path in dbt_project.yml does not match
+    a folder or a resource. A rename of the project or a folder leaves the old
+    path behind."
+  fix: "Open the listed path. The first key under models must be the project
+    name from dbt_project.yml. Later keys must match folders under models. Remove
+    or rename the path that no longer exists."
+  verification: "dbt parse no longer prints unused configuration paths."
+  version_range: ""
+  source: "https://docs.getdbt.com/reference/global-configs/warnings"
+  confidence: 0.68
+  status: reported
+  scope: public
+  tags: [project, config]
+
+- id: dbt-snapshot-check-cols
+  engine: dbt
+  title: Check snapshot is missing check_cols
+  signature: "must specify a check_cols configuration"
+  symptom: "dbt snapshot fails because a check strategy snapshot must specify a
+    check_cols configuration."
+  root_cause: "The check strategy stores a row when one of the listed columns
+    changes. Without check_cols, dbt has nothing to compare."
+  fix: "Set strategy to check and check_cols to a list of columns, or to all.
+    Keep unique_key. Do not set updated_at unless you switch strategy to
+    timestamp."
+  verification: "dbt snapshot builds the snapshot and dbt_scd_id is populated."
+  version_range: ""
+  source: "https://docs.getdbt.com/docs/build/snapshots"
+  confidence: 0.7
+  status: reported
+  scope: public
+  tags: [snapshots, check]
+
+- id: dbt-snapshot-timestamp-updated-at
+  engine: dbt
+  title: Timestamp snapshot is missing updated_at
+  signature: "must specify an updated_at configuration"
+  symptom: "A timestamp strategy snapshot fails because it must specify an
+    updated_at configuration."
+  root_cause: "The timestamp strategy detects changes from a column that
+    increases when the row changes. The config names that column updated_at."
+  fix: "Set strategy to timestamp, unique_key, and updated_at to a real timestamp
+    column in the query. If you meant to hash columns instead, switch strategy to
+    check and set check_cols."
+  verification: "dbt snapshot completes and a changed updated_at value produces a
+    new row."
+  version_range: ""
+  source: "https://docs.getdbt.com/docs/build/snapshots"
+  confidence: 0.7
+  status: reported
+  scope: public
+  tags: [snapshots, timestamp]
+
+- id: dbt-target-missing
+  engine: dbt
+  title: Profile has no target by that name
+  signature: "does not have a target named"
+  symptom: "dbt exits saying the profile does not have a target named the one
+    you asked for, then lists the valid target names."
+  root_cause: "The target key, --target, or the DBT_TARGET environment variable
+    names an output that is not under that profile. DBT_TARGET became reserved in
+    dbt 1.8, so an old variable of that name is now read as the target."
+  fix: "Use a name from the valid target list, or add that output under the
+    profile. Unset DBT_TARGET if it is leftover from something else. dbt debug
+    shows the target it resolved."
+  verification: "dbt debug prints the target you expect and connects."
+  version_range: ""
+  source: "https://docs.getdbt.com/docs/local/profiles.yml"
+  confidence: 0.72
+  status: reported
+  scope: public
+  tags: [profiles, target]
+
+- id: dbt-require-dbt-version
+  engine: dbt
+  title: Installed dbt does not meet require-dbt-version
+  signature: "This version of dbt is not supported with the"
+  symptom: "dbt stops while reading the project. It says this version of dbt is
+    not supported, and prints the installed version next to the required range."
+  root_cause: "require-dbt-version in this project, or in an installed package,
+    does not include the dbt you invoked."
+  fix: "Install a dbt version inside the range, or widen require-dbt-version
+    after you have tested that range. A package can impose its own range, so
+    check the package named in the message. --no-version-check skips the check."
+  verification: "dbt --version is inside the range, and dbt parse gets past the
+    version check."
+  version_range: ""
+  source: "https://docs.getdbt.com/reference/project-configs/require-dbt-version"
+  confidence: 0.74
+  status: reported
+  scope: public
+  tags: [version, project]
+
+- id: dbt-materialization-view-table-conflict
+  engine: dbt
+  title: View and table already occupy the same relation
+  signature: "but it currently exists as a"
+  symptom: "A model fails because dbt is trying to create a view but that
+    relation already exists as a table, or the other way around."
+  root_cause: "materialized changed between view and table, or between table and
+    incremental. The warehouse will not replace one relation kind with the other
+    in place."
+  fix: "Run dbt run --full-refresh --select the model so dbt drops the old
+    relation and creates the new kind. Confirm materialized in the model matches
+    what you want to keep."
+  verification: "The model builds, and the warehouse shows the new relation kind."
+  version_range: ""
+  source: "https://docs.getdbt.com/docs/build/materializations"
+  confidence: 0.7
+  status: reported
+  scope: public
+  tags: [materialization, full-refresh]
+
+- id: dbt-manifest-corrupt
+  engine: dbt
+  title: Partial parse file failed to load
+  signature: "Failed to load parsed file from disk"
+  symptom: "dbt logs that it failed to load the parsed file from disk. Partial
+    parsing can then fail or apply the wrong config until target is cleaned."
+  root_cause: "target/partial_parse.msgpack was written by another dbt version,
+    or the run stopped while the file was half written."
+  fix: "Run dbt clean, or rerun the command with --no-partial-parse. Run dbt
+    deps again if the project needs packages. Do not commit the target directory."
+  verification: "The command parses again and rewrites target/partial_parse.msgpack."
+  version_range: ""
+  source: "https://docs.getdbt.com/reference/parsing"
+  confidence: 0.64
+  status: reported
+  scope: public
+  tags: [parse, target]
+
+- id: dbt-macro-not-found
+  engine: dbt
+  title: Macro name is not in any package
+  signature: "dbt could not find a macro with the name"
+  symptom: "dbt run-operation fails because dbt could not find a macro with that
+    name in any package."
+  root_cause: "The macro was renamed, never defined, or lives in a package that
+    is not installed. A missing dispatch search order can also hide a package
+    macro."
+  fix: "Match the call to the macro file name. Run dbt deps if it comes from a
+    package. For an adapter macro, set dispatch in dbt_project.yml so the right
+    package is searched."
+  verification: "dbt run-operation the macro name completes. dbt ls
+    --resource-type macro lists the name."
+  version_range: ""
+  source: "https://docs.getdbt.com/reference/commands/run-operation"
+  confidence: 0.68
+  status: reported
+  scope: public
+  tags: [macros, packages]
+
+- id: dbt-deps-git-revision
+  engine: dbt
+  title: dbt deps cannot check out the git revision
+  signature: "fatal: reference is not a tree"
+  symptom: "dbt deps fails on a git package. Git exits 128 and says the reference
+    is not a tree, or the revision does not exist."
+  root_cause: "revision in packages.yml is a branch, tag, or commit that is not
+    in that repository. A renamed tag or a short commit from another fork does
+    this."
+  fix: "Set revision to a commit, tag, or branch that git ls-remote shows for
+    that URL. Then run dbt deps again so package-lock.yml records the commit."
+  verification: "dbt deps prints Installed from revision for that package."
+  version_range: ""
+  source: "https://docs.getdbt.com/docs/build/packages"
+  confidence: 0.66
+  status: reported
+  scope: public
+  tags: [packages, git, deps]
+
+- id: dbt-seed-column-count
+  engine: dbt
+  title: Seed row column count does not match the header
+  signature: "values, but Table only has"
+  symptom: "dbt seed fails because a CSV row has a different number of values
+    than the table has columns."
+  root_cause: "A comma inside an unquoted field, or a ragged row, makes one line
+    wider or shorter than the header. dbt reads the file with agate, which
+    reports the row and the column count."
+  fix: "Quote fields that contain commas. Make every row the same width as the
+    header. If the file is the source of truth, fix the short row rather than
+    widening the header."
+  verification: "dbt seed loads the file and the table column count matches the
+    header."
+  version_range: ""
+  source: "https://docs.getdbt.com/docs/build/seeds"
+  confidence: 0.64
+  status: reported
+  scope: public
+  tags: [seeds, csv]
+
+- id: dbt-on-run-start-hook
+  engine: dbt
+  title: on-run-start hook fails in the warehouse
+  signature: "on-run-start.0 failed, error"
+  symptom: "The run log shows the on-run-start hook failed. Later nodes are
+    skipped when skip_nodes_if_on_run_start_fails is true."
+  root_cause: "on-run-start in dbt_project.yml runs SQL as soon as the run
+    starts. A bad statement, a missing role, or a warehouse that is not selected
+    fails that hook."
+  fix: "Read the SQL under the hook name in the message. Run that statement as
+    the dbt role. Fix the SQL or the grants. Use on-run-end for work that should
+    not block the models."
+  verification: "dbt run gets past the hook and starts the first model."
+  version_range: ""
+  source: "https://docs.getdbt.com/reference/global-configs/behavior-flags/skip_nodes_if_on_run_start_fails"
+  confidence: 0.66
+  status: reported
+  scope: public
+  tags: [hooks, database]
+
+- id: dbt-auth-failed
+  engine: dbt
+  title: Warehouse rejects the dbt credentials
+  signature: "Incorrect username or password was specified"
+  symptom: "dbt debug or run fails while connecting. Snowflake says the username
+    or password was incorrect."
+  root_cause: "The user or password in profiles.yml does not match the Snowflake
+    user."
+  fix: "Open the profiles.yml file that dbt debug prints. Set the user and
+    password to the Snowflake login. Run dbt debug again."
+  verification: "dbt debug reports Connection test: OK."
+  version_range: ""
+  source: "https://docs.getdbt.com/guides/debug-errors"
+  confidence: 0.66
+  status: reported
+  scope: public
+  tags: [auth, connection]
+
+- id: dbt-no-active-warehouse
+  engine: dbt
+  title: Snowflake session has no warehouse
+  signature: "No active warehouse selected in the current session"
+  symptom: "A Snowflake model fails with Database Error: No active warehouse
+    selected in the current session."
+  root_cause: "The profile has no warehouse, the role has no privilege to use
+    it, or the user default warehouse is unset and the profile left it blank."
+  fix: "Set warehouse in the Snowflake output of profiles.yml to a warehouse the
+    role can use. Grant USAGE on that warehouse to the role. dbt debug then shows
+    the warehouse."
+  verification: "dbt debug connects, and a one-row model runs without the
+    warehouse error."
+  version_range: ""
+  source: "https://docs.getdbt.com/docs/local/connect-data-platform/snowflake-setup"
+  confidence: 0.7
+  status: reported
+  scope: public
+  tags: [snowflake, warehouse]
+
+- id: dbt-generic-test-not-found
+  engine: dbt
+  title: Generic test name is not installed
+  signature: "is undefined. This can happen when calling a macro that does not exist"
+  symptom: "Parse fails on a schema test because that name is undefined. dbt
+    says this can happen when calling a macro that does not exist."
+  root_cause: "The test name is misspelled, or it comes from a package such as
+    dbt_utils that is not installed. Generic tests are macros."
+  fix: "For a test that ships with dbt, use the documented name such as unique
+    or not_null. For a package test, run dbt deps and call it as package.test_name.
+    A single test belongs in tests as a sql file, not under a model test list."
+  verification: "dbt parse succeeds and dbt test --select the test is discovered."
+  version_range: ""
+  source: "https://docs.getdbt.com/docs/build/data-tests"
+  confidence: 0.68
+  status: reported
+  scope: public
+  tags: [tests, packages]

@@ -21,7 +21,7 @@
 - id: spark-executor-oom
   engine: spark
   title: OutOfMemoryError or executor lost
-  signature: "OutOfMemoryError GC overhead limit exceeded executor lost container killed memory"
+  signature: "org.apache.spark.SparkException java.lang.OutOfMemoryError GC overhead limit exceeded Container killed by YARN for exceeding memory limits"
   symptom: "Executors die with OutOfMemoryError or are lost, and the stage retries
     then fails."
   root_cause: "A partition is too large for executor memory, often from skew, a
@@ -61,7 +61,7 @@
 - id: spark-s3-filenotfound
   engine: spark
   title: FileNotFoundException reading from object storage
-  signature: "Py4JJavaError FileNotFoundException No such file or directory s3 path read"
+  signature: "org.apache.spark.SparkException py4j.protocol.Py4JJavaError java.io.FileNotFoundException No such file or directory"
   symptom: "A read fails with FileNotFoundException on an S3 or object storage
     path."
   root_cause: "The path is wrong, the file was written with a different committer
@@ -103,7 +103,7 @@
 - id: spark-classnotfound-missing-package
   engine: spark
   title: ClassNotFoundException - connector jar not on the classpath
-  signature: "ClassNotFoundException Failed to find data source class not found provider jar"
+  signature: "py4j.protocol.Py4JJavaError java.lang.ClassNotFoundException Failed to find data source"
   symptom: "A job fails to find a data source or a class, for example a Kafka, JDBC,
     Delta, or Iceberg provider."
   root_cause: "The connector jar is not on the classpath. The job was submitted
@@ -119,3 +119,423 @@
   status: reported
   scope: public
   tags: [classpath, connectors, submit]
+
+- id: spark-ansi-arithmetic-overflow
+  engine: spark
+  title: SparkArithmeticException - integer overflow
+  signature: "SparkArithmeticException ARITHMETIC_OVERFLOW integer overflow try_add spark.sql.ansi.enabled"
+  symptom: "A query fails with SparkArithmeticException [ARITHMETIC_OVERFLOW]
+    integer overflow, and the message suggests try_add."
+  root_cause: "ANSI mode is on, so overflow throws instead of wrapping. Spark 4.0
+    enables spark.sql.ansi.enabled by default. On Spark 3.4 and later the same
+    exception is raised only when that setting is true."
+  fix: "Widen the column, for example int to bigint, which keeps the value.
+    try_add, try_subtract, or try_multiply return null on overflow when a null is
+    acceptable. Set spark.sql.ansi.enabled to false only as a stopgap, because the
+    old wraparound hides bad data."
+  verification: "The query returns the widened value, or try_add returns null,
+    and SparkArithmeticException is gone."
+  version_range: ""
+  source: "https://spark.apache.org/docs/latest/sql-ref-ansi-compliance.html"
+  confidence: 0.7
+  status: reported
+  scope: public
+  tags: [ansi, arithmetic, sql]
+
+- id: spark-implicit-cartesian
+  engine: spark
+  title: AnalysisException - implicit cartesian product
+  signature: "AnalysisException Detected implicit cartesian product Join condition is missing crossJoin"
+  symptom: "A join fails with AnalysisException: Detected implicit cartesian
+    product, and says the join condition is missing or trivial."
+  root_cause: "The join has no real key, so Spark refuses the cross product.
+    spark.sql.crossJoin.enabled defaults to false."
+  fix: "Add the missing ON condition. If a cross join is what you want, write
+    CROSS JOIN. Set spark.sql.crossJoin.enabled to true only when the product is
+    intentional and small enough to run."
+  verification: "The join explains without the cartesian analysis error and
+    returns the expected row count."
+  version_range: ""
+  source: "https://spark.apache.org/docs/latest/sql-ref-syntax-qry-select-join.html"
+  confidence: 0.7
+  status: reported
+  scope: public
+  tags: [sql, join]
+
+- id: spark-overwrite-same-path
+  engine: spark
+  title: Cannot overwrite a path that is also being read
+  signature: "AnalysisException UNSUPPORTED_OVERWRITE Cannot overwrite a path that is also being read from"
+  symptom: "A write fails with AnalysisException. The message says it cannot
+    overwrite a path that is also being read from, or UNSUPPORTED_OVERWRITE."
+  root_cause: "The job reads a path and writes it back in overwrite mode. Spark
+    blocks that so the read files are not deleted out from under the job."
+  fix: "Write to a different path, then replace the old path after the write
+    succeeds. For a DataFrame, cache it and run an action such as count so the
+    read finishes before the overwrite. An INSERT OVERWRITE of a table you also
+    select from has the same limit. Write a staging table, then swap."
+  verification: "The write completes and a read of the destination shows the new
+    data."
+  version_range: ""
+  source: "https://spark.apache.org/docs/latest/sql-error-conditions.html#unsupported-overwrite-path"
+  confidence: 0.66
+  status: reported
+  scope: public
+  tags: [write, paths]
+
+- id: spark-python-worker-version
+  engine: spark
+  title: Python on the workers does not match the driver
+  signature: "org.apache.spark.SparkException PySparkRuntimeError PYTHON_VERSION_MISMATCH Python in worker has different version than that in driver PYSPARK_PYTHON PYSPARK_DRIVER_PYTHON"
+  symptom: "The job fails immediately because Python in the worker has a
+    different version than Python in the driver."
+  root_cause: "The driver and the executors are not on the same Python minor
+    version. PYSPARK_PYTHON on the workers and PYSPARK_DRIVER_PYTHON on the
+    driver point at different interpreters."
+  fix: "Point PYSPARK_PYTHON and PYSPARK_DRIVER_PYTHON at the same interpreter
+    on every node. Restart the workers after the change so they do not keep the
+    old one."
+  verification: "The job gets past the first Python task, and the worker log
+    shows the same Python version as the driver."
+  version_range: ""
+  source: "https://spark.apache.org/docs/latest/configuration.html"
+  confidence: 0.72
+  status: reported
+  scope: public
+  tags: [python, cluster, config]
+
+- id: spark-divide-by-zero
+  engine: spark
+  title: SparkArithmeticException DIVIDE_BY_ZERO
+  signature: "org.apache.spark.SparkArithmeticException DIVIDE_BY_ZERO Division by zero try_divide divisor"
+  symptom: "A query fails with SparkArithmeticException DIVIDE_BY_ZERO when a
+    divisor is zero."
+  root_cause: "ANSI mode is on, so division by zero throws. Spark 4.0 turns ANSI
+    on by default. On 3.4 and later the same error fires only when
+    spark.sql.ansi.enabled is true."
+  fix: "Guard the divisor, or replace the operator with try_divide, which returns
+    null instead of failing. Fixing the bad rows is better than turning ANSI off."
+  verification: "The query returns null for the zero divisor rows and values for
+    the rest."
+  version_range: ""
+  source: "https://spark.apache.org/docs/latest/sql-error-conditions.html#divide-by-zero"
+  confidence: 0.72
+  status: reported
+  scope: public
+  tags: [ansi, sql, arithmetic]
+
+- id: spark-cast-invalid-input
+  engine: spark
+  title: CAST_INVALID_INPUT on a bad cast
+  signature: "SparkNumberFormatException CAST_INVALID_INPUT try_cast malformed"
+  symptom: "A cast fails with CAST_INVALID_INPUT. SparkNumberFormatException says
+    the value is malformed for the target type."
+  root_cause: "ANSI mode rejects a cast that older Spark turned into null. A
+    string that is not a number, or a timestamp that does not match the pattern,
+    throws."
+  fix: "Clean the value, or use try_cast so bad rows become null. Filter those
+    nulls if the column must be present. Keep ANSI on if you want the failure
+    when the cast should have worked."
+  verification: "try_cast returns null for the bad value, and a valid value still
+    casts."
+  version_range: ""
+  source: "https://spark.apache.org/docs/latest/sql-ref-ansi-compliance.html"
+  confidence: 0.7
+  status: reported
+  scope: public
+  tags: [ansi, cast, sql]
+
+- id: spark-kryo-buffer-overflow
+  engine: spark
+  title: Kryo serializer buffer overflow
+  signature: "org.apache.spark.SparkException Kryo serialization failed Buffer overflow com.esotericsoftware.kryo.KryoException spark.kryoserializer.buffer.max"
+  symptom: "The job fails with KryoException: Buffer overflow while serializing a
+    task or a shuffle block."
+  root_cause: "spark.serializer is Kryo and one object is larger than
+    spark.kryoserializer.buffer.max. The default max is 64m. This is not the
+    Task not serializable failure, which fires before any bytes are written."
+  fix: "Raise spark.kryoserializer.buffer.max above the object size. Prefer
+    smaller records if one row holds a huge blob. Leave spark.kryoserializer.buffer
+    at its small default so tasks do not reserve the max up front."
+  verification: "The stage completes and the Kryo overflow is gone from the
+    executor log."
+  version_range: ""
+  source: "https://spark.apache.org/docs/latest/configuration.html"
+  confidence: 0.68
+  status: reported
+  scope: public
+  tags: [serialization, kryo, config]
+
+- id: spark-fetch-failed-shuffle
+  engine: spark
+  title: FetchFailedException during shuffle
+  signature: "org.apache.spark.SparkException org.apache.spark.shuffle.FetchFailedException Too large frame"
+  symptom: "A shuffle read fails with FetchFailedException and the message Too
+    large frame."
+  root_cause: "The shuffle block is larger than the network frame limit, about 2g.
+    Spark tries to fetch that block into memory and the frame is rejected. This
+    is not an executor out of memory failure."
+  fix: "Lower spark.network.maxRemoteBlockSizeFetchToMem so the block fetches to
+    disk. Keep the value under 2g. Split the skewed partition that wrote the
+    block."
+  verification: "The stage completes without a new fetch failure, and the
+    shuffle read in the UI finishes."
+  version_range: ""
+  source: "https://spark.apache.org/docs/latest/configuration.html"
+  confidence: 0.64
+  status: reported
+  scope: public
+  tags: [shuffle, network]
+
+- id: spark-max-result-size
+  engine: spark
+  title: Driver maxResultSize exceeded
+  signature: "org.apache.spark.SparkException Total size of serialized results is bigger than spark.driver.maxResultSize"
+  symptom: "The job aborts because the total size of serialized results of the
+    tasks is bigger than spark.driver.maxResultSize."
+  root_cause: "An action such as collect, toPandas, or a broadcast collects
+    results onto the driver. The default cap is 1g. This is the driver limit, not
+    an executor out of memory."
+  fix: "Stop collecting the full set. Write the output from the executors, or
+    aggregate first. Raise spark.driver.maxResultSize only when the driver has
+    memory for that total. A broadcast of a large side also trips this cap."
+  verification: "The action returns, and the driver log no longer reports
+    maxResultSize."
+  version_range: ""
+  source: "https://spark.apache.org/docs/latest/configuration.html"
+  confidence: 0.7
+  status: reported
+  scope: public
+  tags: [driver, memory, collect]
+
+- id: spark-codegen-64kb
+  engine: spark
+  title: Whole-stage codegen method exceeds 64 KB
+  signature: "org.apache.spark.SparkException org.codehaus.janino.JaninoRuntimeException Code of method grows beyond 64 KB"
+  symptom: "The job fails in Janino. Code of a method in GeneratedIterator or
+    SpecificUnsafeProjection grows beyond 64 KB."
+  root_cause: "Whole-stage codegen, on by default as spark.sql.codegen.wholeStage,
+    compiles a huge plan into one Java method. The JVM class format limits a
+    method to 64 KB."
+  fix: "Split the plan. checkpoint or persist and count, then continue in a
+    second action, so each method stays under the limit. Setting
+    spark.sql.codegen.wholeStage to false also avoids the compile, at a CPU cost."
+  verification: "The action completes and the Janino 64 KB error is gone."
+  version_range: ""
+  source: "https://spark.apache.org/docs/latest/api/scala/org/apache/spark/metrics/source/CodegenMetrics$.html"
+  confidence: 0.7
+  status: reported
+  scope: public
+  tags: [codegen, sql]
+
+- id: spark-table-or-view-not-found
+  engine: spark
+  title: TABLE_OR_VIEW_NOT_FOUND
+  signature: "AnalysisException TABLE_OR_VIEW_NOT_FOUND table or view cannot be found"
+  symptom: "AnalysisException TABLE_OR_VIEW_NOT_FOUND says the table or view
+    cannot be found."
+  root_cause: "The name is wrong, the current catalog or database is not the one
+    that holds the table, or the session has not registered the view."
+  fix: "Use the catalog.database.table name. Run SHOW TABLES in that database.
+    For a temp view, create it in the same session before the query. This is a
+    missing relation, not a missing column."
+  verification: "spark.catalog.tableExists is true for that name, and the query
+    runs."
+  version_range: ""
+  source: "https://spark.apache.org/docs/latest/sql-error-conditions.html"
+  confidence: 0.7
+  status: reported
+  scope: public
+  tags: [sql, catalog, tables]
+
+- id: spark-dynamic-partition-strict
+  engine: spark
+  title: Dynamic partition strict mode
+  signature: "AnalysisException Dynamic partition strict mode requires at least one static partition column hive.exec.dynamic.partition.mode"
+  symptom: "A write into a partitioned Hive table fails. Dynamic partition strict
+    mode requires at least one static partition column."
+  root_cause: "hive.exec.dynamic.partition.mode defaults to strict. An INSERT
+    that sets every partition column from data, with no static partition, is
+    rejected."
+  fix: "Add a static partition to the INSERT, or set
+    hive.exec.dynamic.partition.mode to nonstrict for that write. Also set
+    hive.exec.dynamic.partition to true if dynamic partitions are still off."
+  verification: "The insert lands rows and SHOW PARTITIONS lists the new
+    partitions."
+  version_range: ""
+  source: "https://spark.apache.org/docs/latest/sql-data-sources-hive-tables.html"
+  confidence: 0.66
+  status: reported
+  scope: public
+  tags: [hive, partitions, write]
+
+- id: spark-broadcast-timeout
+  engine: spark
+  title: Broadcast join exceeds broadcastTimeout
+  signature: "org.apache.spark.SparkException Could not execute broadcast spark.sql.broadcastTimeout spark.sql.autoBroadcastJoinThreshold"
+  symptom: "The job fails with SparkException: Could not execute broadcast in
+    time, citing spark.sql.broadcastTimeout."
+  root_cause: "The broadcast side is larger or slower than the timeout, which
+    defaults to 300 seconds. autoBroadcastJoinThreshold still chooses a broadcast
+    hash join."
+  fix: "Filter or aggregate the small side before the join. Raise
+    spark.sql.broadcastTimeout if the side is legitimately slow to collect. Set
+    spark.sql.autoBroadcastJoinThreshold to -1 to force a shuffle join when the
+    side is not small."
+  verification: "The join finishes and the UI shows either a completed broadcast
+    or a shuffle join."
+  version_range: ""
+  source: "https://spark.apache.org/docs/latest/configuration.html"
+  confidence: 0.66
+  status: reported
+  scope: public
+  tags: [join, broadcast, timeout]
+
+- id: spark-python-worker-crashed
+  engine: spark
+  title: Python worker exited unexpectedly
+  signature: "org.apache.spark.SparkException Python worker exited unexpectedly crashed"
+  symptom: "A Python task fails with Python worker exited unexpectedly
+    (crashed). The executor log may show a native signal before it."
+  root_cause: "The worker process died. Typical causes are a native library
+    crash, a pandas or arrow buffer issue, or a memory kill that does not print
+    a Java OutOfMemoryError. A version mismatch is a different message."
+  fix: "Read the executor stderr for the signal or the Python traceback. Set
+    PYSPARK_PYTHON to the interpreter that has the worker dependencies. For a
+    memory kill, lower the data per task or raise executor memory. Reproduce one
+    partition with mapPartitions locally."
+  verification: "The Python stage completes and the worker process stays up for
+    the whole task."
+  version_range: ""
+  source: "https://spark.apache.org/docs/latest/configuration.html"
+  confidence: 0.62
+  status: reported
+  scope: public
+  tags: [python, worker]
+
+- id: spark-s3-access-denied
+  engine: spark
+  title: S3 responds 403 Access Denied
+  signature: "org.apache.spark.SparkException com.amazonaws.services.s3.model.AmazonS3Exception Status Code 403 Access Denied"
+  symptom: "A read or write fails with AmazonS3Exception, status 403, Access
+    Denied."
+  root_cause: "The credentials are present but not allowed to use that bucket or
+    key. A missing s3:GetObject, s3:ListBucket, or a condition on encryption
+    headers looks the same. A wrong path is a 404, not a 403."
+  fix: "Confirm the role the executors assume, not only the driver. Allow
+    ListBucket on the bucket and GetObject or PutObject on the prefix. If the
+    bucket requires SSE-KMS, grant the key and send the encryption header the
+    bucket policy expects."
+  verification: "A list and a read of one object with the same credentials
+    succeed from an executor."
+  version_range: ""
+  source: "https://hadoop.apache.org/docs/stable/hadoop-aws/tools/hadoop-aws/index.html"
+  confidence: 0.68
+  status: reported
+  scope: public
+  tags: [s3, iam, credentials]
+
+- id: spark-multiple-sparkcontext
+  engine: spark
+  title: A second SparkContext in one JVM
+  signature: "org.apache.spark.SparkException Only one SparkContext may be running in this JVM spark.driver.allowMultipleContexts"
+  symptom: "Creating a session fails with Only one SparkContext may be running
+    in this JVM."
+  root_cause: "A second SparkContext was started while the first is still alive.
+    Notebooks and tests do this when they call SparkContext() again instead of
+    reusing the session."
+  fix: "Build the session with SparkSession.builder.getOrCreate and stop using
+    the existing one. Stop the old context before starting a new one in a test.
+    spark.driver.allowMultipleContexts hides the check and leaves two contexts
+    sharing one JVM."
+  verification: "A second getOrCreate returns the same session, and the app
+    starts with one context."
+  version_range: ""
+  source: "https://spark.apache.org/docs/latest/rdd-programming-guide.html"
+  confidence: 0.7
+  status: reported
+  scope: public
+  tags: [sparkcontext, session]
+
+- id: spark-streaming-checkpoint-missing
+  engine: spark
+  title: Structured streaming query has no checkpoint
+  signature: "org.apache.spark.sql.AnalysisException checkpointLocation must be specified either through option checkpointLocation or spark.sql.streaming.checkpointLocation"
+  symptom: "A streaming query fails because checkpointLocation must be
+    specified, either as an option or as spark.sql.streaming.checkpointLocation."
+  root_cause: "Structured streaming stores offsets and state in a checkpoint.
+    A query with state, or a sink that requires it, refuses to start without a
+    path."
+  fix: "Set option checkpointLocation to a durable directory unique to this
+    query. Do not share one checkpoint between two queries. To move or reset,
+    stop the query and use a new empty directory only when replaying from the
+    source is acceptable."
+  verification: "The query stays active and the checkpoint directory contains
+    offsets and commits."
+  version_range: ""
+  source: "https://spark.apache.org/docs/latest/streaming/apis-on-dataframes-and-datasets.html#recovering-from-failures-with-checkpointing"
+  confidence: 0.72
+  status: reported
+  scope: public
+  tags: [streaming, checkpoint]
+
+- id: spark-jdbc-no-driver
+  engine: spark
+  title: JDBC driver is not on the classpath
+  signature: "py4j.protocol.Py4JJavaError java.sql.SQLException No suitable driver found for jdbc"
+  symptom: "A JDBC read or write fails with SQLException: No suitable driver for
+    the URL."
+  root_cause: "The database driver class is not loaded on the driver and the
+    executors. Spark does not bundle vendor JDBC drivers."
+  fix: "Pass the driver jar with --jars or spark.jars, and set the driver option
+    to the class name, such as org.postgresql.Driver. The jar has to reach the
+    executors, so a local path only on the client is not enough."
+  verification: "The JDBC read returns rows and the URL no longer reports a
+    missing driver."
+  version_range: ""
+  source: "https://spark.apache.org/docs/latest/sql-data-sources-jdbc.html"
+  confidence: 0.7
+  status: reported
+  scope: public
+  tags: [jdbc, classpath]
+
+- id: spark-kafka-offset-out-of-range
+  engine: spark
+  title: Kafka offset is out of range
+  signature: "org.apache.kafka.clients.consumer.OffsetOutOfRangeException Offsets out of range with no configured reset policy failOnDataLoss"
+  symptom: "A Kafka source fails with OffsetOutOfRangeException. The stored
+    offset is no longer in the topic."
+  root_cause: "The checkpoint or startingOffsets points at an offset the broker
+    deleted, usually because retention moved the log start ahead of the consumer."
+  fix: "For a new query, set startingOffsets to earliest or latest. For a query
+    that already has a checkpoint, the checkpoint wins over startingOffsets. If
+    losing the gap is acceptable, set failOnDataLoss to false. Otherwise recreate
+    the checkpoint and accept a replay from earliest."
+  verification: "The stream starts and the source progress shows offsets inside
+    the current log range."
+  version_range: ""
+  source: "https://spark.apache.org/docs/latest/streaming/structured-streaming-kafka-integration.html"
+  confidence: 0.68
+  status: reported
+  scope: public
+  tags: [kafka, streaming, offsets]
+
+- id: spark-window-requires-order
+  engine: spark
+  title: Window function has no ORDER BY
+  signature: "AnalysisException WINDOW_FUNCTION_FRAME_NOT_ORDERED Window function requires the window to be ordered ORDER BY clause"
+  symptom: "AnalysisException says a window function requires the window to be
+    ordered, and asks for an ORDER BY clause."
+  root_cause: "rank, dense_rank, row_number, and lag need an order inside OVER.
+    A window that only partitions is not ordered."
+  fix: "Add ORDER BY inside the OVER clause. Partition by the group, and order
+    by the column that defines the sequence. A range frame also needs that
+    order."
+  verification: "The select returns and the ranking repeats per partition in the
+    order you set."
+  version_range: ""
+  source: "https://spark.apache.org/docs/latest/sql-error-conditions.html#window-function-frame-not-ordered"
+  confidence: 0.7
+  status: reported
+  scope: public
+  tags: [sql, window]

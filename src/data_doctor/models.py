@@ -15,7 +15,7 @@ from pydantic import BaseModel, Field
 __all__ = ["ENGINES", "Entry", "Match", "now_iso"]
 
 #: The engines data-doctor knows in v1. "other" is the catch-all.
-ENGINES = ("airflow", "dbt", "spark", "iceberg", "duckdb", "other")
+ENGINES = ("airflow", "airbyte", "dbt", "spark", "iceberg", "duckdb", "other")
 
 
 def now_iso() -> str:
