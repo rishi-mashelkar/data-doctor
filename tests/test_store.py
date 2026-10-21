@@ -24,6 +24,25 @@ def test_feedback_moves_confidence_and_marks_verified(tmp_path):
         assert again.successes == 1 and again.failures == 1
 
 
+def test_first_positive_feedback_raises_not_dips_confidence(tmp_path):
+    with Bank(home=tmp_path) as bank:
+        bank.upsert(Entry(id="hi", title="t", signature="s", confidence=0.72))
+        e = bank.record_feedback("hi", worked=True)
+        # The authored prior is 0.72. A worked result must raise it, never drop it.
+        assert e.confidence > 0.72
+        e2 = bank.record_feedback("hi", worked=False)
+        # A failed result then pulls it back below the prior.
+        assert e2.confidence < 0.72
+
+
+def test_base_confidence_defaults_to_authored_and_survives_round_trip(tmp_path):
+    with Bank(home=tmp_path) as bank:
+        bank.upsert(Entry(id="b", title="t", signature="s", confidence=0.3))
+        got = bank.get("b")
+        assert got.base_confidence == 0.3
+        assert got.confidence == 0.3
+
+
 def test_seed_loads_and_stats(tmp_path):
     with Bank(home=tmp_path) as bank:
         entries = load_seed()

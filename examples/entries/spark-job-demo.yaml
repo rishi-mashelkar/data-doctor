@@ -1,0 +1,26 @@
+# A worked example of a command repro for Spark. It runs a tiny job with
+# spark-submit and expects it to exit 0. It needs a working Spark install, so
+# without one data-doctor skips it rather than failing.
+#
+#   data-doctor add examples/entries/spark-job-demo.yaml
+#   data-doctor verify spark-job-runs-demo --allow-commands --project examples/spark_demo
+- id: spark-job-runs-demo
+  engine: spark
+  title: "demo: a Spark job selects a column and exits clean"
+  signature: "AnalysisException cannot resolve column"
+  symptom: "A Spark job fails to select a column that is missing from the schema."
+  root_cause: "The column name is wrong or dropped. The demo selects one that exists."
+  fix: "Select a column the schema has. The demo selects amount, which is present."
+  verification: "spark-submit job.py exits 0."
+  version_range: "spark>=3.0"
+  source: "https://spark.apache.org/docs/latest/sql-ref-ansi-compliance.html"
+  confidence: 0.6
+  status: reported
+  scope: public
+  tags: [demo, spark, submit]
+  repro:
+    verifier: command
+    tool: spark-submit
+    cwd: project
+    args: ["job.py"]
+    expect_exit: 0

@@ -1,6 +1,19 @@
+import shutil
+from pathlib import Path
+
+import pytest
+import yaml
+
 from data_doctor.cli import main
 from data_doctor.seed import load_seed
 from data_doctor.verify import run_repro
+
+_EXAMPLES = Path(__file__).parent.parent / "examples"
+
+
+def _example_entry(name: str) -> dict:
+    rows = yaml.safe_load((_EXAMPLES / "entries" / name).read_text())
+    return rows[0]
 
 
 def test_duckdb_repro_passes_when_error_reproduces_and_fix_runs():
@@ -50,6 +63,40 @@ def test_command_verifier_skips_unknown_tool():
     r = run_repro({"verifier": "command", "tool": "definitely-not-a-real-tool"},
                   allow_commands=True)
     assert r.status == "skipped"
+
+
+def test_command_reproduce_then_fix_passes():
+    r = run_repro({
+        "verifier": "command", "tool": "python3",
+        "failing": ["-c", "import sys; sys.exit(2)"],  # must fail
+        "args": ["-c", "import sys; sys.exit(0)"],      # fix runs clean
+    }, allow_commands=True)
+    assert r.status == "passed" and "reproduced" in r.detail
+
+
+def test_command_reproduce_then_fix_needs_the_failing_to_fail():
+    r = run_repro({
+        "verifier": "command", "tool": "python3",
+        "failing": ["-c", "import sys; sys.exit(0)"],  # does NOT fail
+        "args": ["-c", "import sys; sys.exit(0)"],
+    }, allow_commands=True)
+    assert r.status == "failed" and "did not fail" in r.detail
+
+
+def test_dbt_example_repro_reproduces_and_fixes():
+    if shutil.which("dbt") is None:
+        pytest.skip("dbt is not on PATH")
+    repro = _example_entry("dbt-ref-demo.yaml")["repro"]
+    r = run_repro(repro, project=_EXAMPLES / "dbt_demo", allow_commands=True)
+    assert r.status == "passed", r.detail
+
+
+def test_spark_example_repro_skips_without_spark():
+    if shutil.which("spark-submit") is not None:
+        pytest.skip("spark-submit is on PATH; the skip path is not exercised")
+    repro = _example_entry("spark-job-demo.yaml")["repro"]
+    r = run_repro(repro, project=_EXAMPLES / "spark_demo", allow_commands=True)
+    assert r.status == "skipped" and "spark-submit" in r.detail
 
 
 def test_seed_duckdb_entries_all_verify():

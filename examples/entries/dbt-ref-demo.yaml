@@ -1,0 +1,30 @@
+# A worked example of a command repro for dbt. It reproduces a ref that points at
+# a missing model, then confirms the fix, by running dbt against the demo project
+# in examples/dbt_demo. Load it and verify it:
+#
+#   data-doctor add examples/entries/dbt-ref-demo.yaml
+#   data-doctor verify dbt-ref-node-not-found-demo --allow-commands --project examples/dbt_demo
+#
+# The repro runs dbt parse twice. First with the ref broken, which must fail. Then
+# with the ref fixed, which must pass. A pass marks the entry verified.
+- id: dbt-ref-node-not-found-demo
+  engine: dbt
+  title: "demo: a dbt ref points at a model that does not exist"
+  signature: "Compilation Error depends on a node named which was not found"
+  symptom: "dbt parse fails because a model refs a node that is not in the project."
+  root_cause: "The ref name matches no model. The demo toggles a bad ref with a var."
+  fix: "Point the ref at a model that exists. The demo sets the var fixed to true."
+  verification: "dbt parse exits 0 once the ref resolves."
+  version_range: "dbt>=1.0"
+  source: "https://docs.getdbt.com/reference/dbt-jinja-functions/ref"
+  confidence: 0.6
+  status: reported
+  scope: public
+  tags: [demo, dbt, ref]
+  repro:
+    verifier: command
+    tool: dbt
+    cwd: project
+    failing: ["parse", "--vars", "{fixed: false}"]
+    args: ["parse", "--vars", "{fixed: true}"]
+    expect_exit: 0

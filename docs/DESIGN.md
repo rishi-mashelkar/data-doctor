@@ -83,8 +83,13 @@ Three rules hold for every connector:
 
 Every entry states its source, the versions it applies to, and a confidence.
 Seed entries ship as reported, not verified. Reported means it came from a source
-we have not reproduced inside data-doctor. Feedback and, later, a repro step move an
-entry to verified. The tool suggests. It never changes your systems in v1.
+we have not reproduced inside data-doctor. A repro step moves an entry to verified.
+The tool suggests. It never changes your systems in v1.
+
+Confidence starts from the authored prior and moves with feedback. A worked result
+raises it, a failed result lowers it, and no single result swings it to 0 or 1. So
+the first worked result raises confidence, it does not drop it toward a default. A
+verified entry carries a prior floor, which holds through later feedback.
 
 ## Out of scope for v1
 

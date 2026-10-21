@@ -185,12 +185,16 @@ def _stats(args: argparse.Namespace) -> int:
 
 
 def _promote(entry, result) -> None:
-    """A passed repro marks the entry verified and lifts its confidence floor."""
+    """A passed repro marks the entry verified and lifts its confidence floor.
+
+    The floor goes on the prior, not just the current value, so later feedback
+    moves confidence from 0.8, not from the authored prior."""
     from data_doctor.models import now_iso
 
     entry.status = "verified"
     entry.last_verified = now_iso()
-    entry.confidence = max(entry.confidence, 0.8)
+    entry.base_confidence = max(entry.base_confidence, 0.8)
+    entry.recompute_confidence()
 
 
 def _verify(args: argparse.Namespace) -> int:

@@ -11,7 +11,8 @@ Verifiers:
   raises, then that the fixed SQL runs clean. Safe to run by default.
 - command: runs an allowlisted tool (dbt, spark-submit, pyspark, python) in a
   project directory. Off by default. The caller must allow it, and the tool must
-  be on PATH or the result is skipped.
+  be on PATH or the result is skipped. It can run a failing command first, to
+  reproduce the error, then the fixed command, like the duckdb_sql verifier.
 """
 
 from __future__ import annotations
@@ -84,16 +85,30 @@ def _command(repro: dict, *, project: Path | None, allow_commands: bool) -> Veri
     if tool not in COMMAND_ALLOWLIST:
         return VerifyResult("skipped", f"tool not allowlisted: {tool}")
     if shutil.which(tool) is None:
-        return VerifyResult("skipped", f"{tool} is not installed")
+        return VerifyResult("skipped", f"{tool} is not on PATH")
     cwd = str(project) if repro.get("cwd") == "project" and project else None
-    args = [str(a) for a in repro.get("args", [])]
-    expect_exit = int(repro.get("expect_exit", 0))
+    timeout = int(repro.get("timeout", 120))
+
+    def run(cmd_args: list) -> subprocess.CompletedProcess:
+        return subprocess.run([tool, *[str(a) for a in cmd_args]], cwd=cwd,
+                              capture_output=True, text=True, timeout=timeout, check=False)
+
     try:
-        proc = subprocess.run([tool, *args], cwd=cwd, capture_output=True,
-                              text=True, timeout=int(repro.get("timeout", 120)), check=False)
+        # An optional reproduce step: the failing command must fail first, so a
+        # pass means the error was real and the fix resolves it.
+        failing = repro.get("failing")
+        if failing:
+            fail_proc = run(failing)
+            if fail_proc.returncode == 0:
+                return VerifyResult("failed", f"the failing {tool} command did not fail")
+        proc = run(repro.get("args", []))
     except subprocess.TimeoutExpired:
         return VerifyResult("failed", "the command timed out")
+
+    expect_exit = int(repro.get("expect_exit", 0))
     if proc.returncode == expect_exit:
-        return VerifyResult("passed", f"{tool} exited {proc.returncode} as expected")
+        detail = ("reproduced the error; the fix runs clean" if repro.get("failing")
+                  else f"{tool} exited {proc.returncode} as expected")
+        return VerifyResult("passed", detail)
     tail = (proc.stderr or proc.stdout or "").strip().splitlines()[-1:] or [""]
     return VerifyResult("failed", f"{tool} exited {proc.returncode}: {tail[0]}")

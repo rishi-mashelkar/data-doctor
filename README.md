@@ -81,6 +81,11 @@ network access turned off. A second verifier can run a tool like dbt or
 spark-submit against your project, but only with `--allow-commands`, and only for
 an allowlisted tool. The tool runs nothing on its own.
 
+The command verifier can reproduce then fix, like the SQL one. It runs a failing
+command first. That must fail. Then it runs the fixed command, which must pass. See
+[examples/](examples/) for a dbt repro that runs against a bundled project and a
+Spark repro that shows the same for Spark.
+
 ## Match by meaning
 
 The local match is fast and offline, but it misses a failure described in

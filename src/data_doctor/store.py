@@ -21,9 +21,9 @@ __all__ = ["Bank", "default_home"]
 
 _COLUMNS = [
     "id", "engine", "title", "signature", "symptom", "root_cause", "fix",
-    "verification", "version_range", "source", "confidence", "status", "scope",
-    "tags", "successes", "failures", "created_at", "updated_at", "last_verified",
-    "repro",
+    "verification", "version_range", "source", "confidence", "base_confidence",
+    "status", "scope", "tags", "successes", "failures", "created_at", "updated_at",
+    "last_verified", "repro",
 ]
 #: Columns stored as JSON text and parsed back into Python objects on read.
 _JSON_COLUMNS = {"tags", "repro"}
@@ -50,7 +50,7 @@ class Bank:
                 engine VARCHAR, title VARCHAR, signature VARCHAR, symptom VARCHAR,
                 root_cause VARCHAR, fix VARCHAR, verification VARCHAR,
                 version_range VARCHAR, source VARCHAR, confidence DOUBLE,
-                status VARCHAR, scope VARCHAR, tags VARCHAR,
+                base_confidence DOUBLE, status VARCHAR, scope VARCHAR, tags VARCHAR,
                 successes INTEGER, failures INTEGER,
                 created_at VARCHAR, updated_at VARCHAR, last_verified VARCHAR,
                 repro VARCHAR
@@ -59,6 +59,11 @@ class Bank:
         )
         # Migrate banks created before the repro column existed.
         self._con.execute("ALTER TABLE entries ADD COLUMN IF NOT EXISTS repro VARCHAR")
+        # Migrate banks created before base_confidence. Seed the prior from the
+        # confidence already stored, so existing entries keep their value.
+        self._con.execute("ALTER TABLE entries ADD COLUMN IF NOT EXISTS base_confidence DOUBLE")
+        self._con.execute(
+            "UPDATE entries SET base_confidence = confidence WHERE base_confidence IS NULL")
 
     def close(self) -> None:
         self._con.close()
@@ -100,6 +105,10 @@ class Bank:
         data = dict(zip(_COLUMNS, row, strict=True))
         data["tags"] = json.loads(data["tags"]) if data["tags"] else []
         data["repro"] = json.loads(data["repro"]) if data["repro"] else None
+        # A null prior (a row that predates the migration UPDATE) defaults to the
+        # authored confidence through the model validator.
+        if data.get("base_confidence") is None:
+            data.pop("base_confidence", None)
         return Entry(**data)
 
     def get(self, entry_id: str) -> Entry | None:

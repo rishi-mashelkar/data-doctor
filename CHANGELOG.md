@@ -5,6 +5,21 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-10-21
+
+### Added
+- The command verifier can reproduce then fix, like the SQL verifier. It runs a
+  failing command first. That must fail. Then it runs the fixed command, which must
+  pass. This brings runnable repros to the heavier engines. A worked example for
+  dbt runs against a bundled dbt project in examples/, and a Spark example shows the
+  same for Spark.
+
+### Fixed
+- Confidence now starts from the authored prior, not from 0.5. The first worked
+  result raises an entry's confidence instead of dropping it. Feedback moves
+  confidence around the prior, and a verified entry's prior floor holds through
+  later feedback.
+
 ## [0.5.0] - 2026-10-21
 
 ### Added
