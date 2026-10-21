@@ -1,0 +1,46 @@
+[project]
+name = "data-doctor"
+version = "0.1.0"
+description = "Diagnose data-pipeline failures against a version-aware knowledge bank, and get the exact fix."
+readme = "README.md"
+requires-python = ">=3.12"
+license = { text = "Apache-2.0" }
+authors = [{ name = "Rishi Mashelkar" }]
+keywords = ["data-engineering", "airflow", "dbt", "spark", "iceberg", "troubleshooting", "observability"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Debuggers",
+]
+dependencies = [
+    "duckdb>=1.1",
+    "pydantic>=2.6",
+    "pyyaml>=6.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0", "ruff>=0.6"]
+
+[project.scripts]
+data-doctor = "data_doctor.cli:main"
+ddoc = "data_doctor.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/rishi-mashelkar/data-doctor"
+Source = "https://github.com/rishi-mashelkar/data-doctor"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/data_doctor"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"src/data_doctor/seed" = "data_doctor/seed"
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"

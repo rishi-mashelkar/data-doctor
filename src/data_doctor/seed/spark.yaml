@@ -1,0 +1,81 @@
+- id: spark-analysisexception-cannot-resolve-column
+  engine: spark
+  title: AnalysisException - cannot resolve column
+  signature: "AnalysisException cannot resolve column given input columns"
+  symptom: "A job fails with AnalysisException cannot resolve a column, listing the
+    available input columns."
+  root_cause: "The column name is wrong, has different case under a case-sensitive
+    read, was dropped by an earlier transform, or is ambiguous after a join."
+  fix: "Compare the name to the printed input columns. For a post-join ambiguity,
+    qualify it with the DataFrame alias. For case issues, align the name or set
+    spark.sql.caseSensitive consistently. Print the schema right before the
+    failing step to confirm the column is still there."
+  verification: "df.printSchema() shows the column, and the select runs."
+  version_range: ""
+  source: "https://spark.apache.org/docs/latest/sql-ref-ansi-compliance.html"
+  confidence: 0.7
+  status: reported
+  scope: public
+  tags: [sql, schema, join]
+
+- id: spark-executor-oom
+  engine: spark
+  title: OutOfMemoryError or executor lost
+  signature: "OutOfMemoryError GC overhead limit exceeded executor lost container killed memory"
+  symptom: "Executors die with OutOfMemoryError or are lost, and the stage retries
+    then fails."
+  root_cause: "A partition is too large for executor memory, often from skew, a
+    wide shuffle, or a collect that pulls too much to one place. The container can
+    be killed for exceeding its memory limit."
+  fix: "Raise executor memory or lower cores per executor so each task has more
+    memory. Increase shuffle partitions to shrink each partition. Address skew with
+    a salt or adaptive execution. Avoid collect on large data. Confirm the cluster
+    memory overhead covers off-heap use."
+  verification: "The stage completes without executor loss and the Spark UI shows
+    no spill-to-failure."
+  version_range: ""
+  source: "https://spark.apache.org/docs/latest/tuning.html"
+  confidence: 0.62
+  status: reported
+  scope: public
+  tags: [memory, skew, shuffle]
+
+- id: spark-task-not-serializable
+  engine: spark
+  title: Task not serializable
+  signature: "org.apache.spark.SparkException Task not serializable NotSerializableException"
+  symptom: "A job fails immediately with Task not serializable."
+  root_cause: "A closure sent to executors captures an object that cannot be
+    serialized, such as a client, a logger, or a reference to the enclosing class."
+  fix: "Move the non-serializable object creation inside the executor code, for
+    example with mapPartitions, so each task builds its own. Keep only simple
+    values in the closure. Mark helper objects as transient or make them local."
+  verification: "The job runs past the transform that previously failed."
+  version_range: ""
+  source: "https://spark.apache.org/docs/latest/rdd-programming-guide.html"
+  confidence: 0.68
+  status: reported
+  scope: public
+  tags: [serialization, closures]
+
+- id: spark-s3-filenotfound
+  engine: spark
+  title: FileNotFoundException reading from object storage
+  signature: "Py4JJavaError FileNotFoundException No such file or directory s3 path read"
+  symptom: "A read fails with FileNotFoundException on an S3 or object storage
+    path."
+  root_cause: "The path is wrong, the file was written with a different committer
+    so listing is stale, or credentials and the right filesystem connector are not
+    configured."
+  fix: "Confirm the exact path and that objects exist under it. Use the correct
+    scheme and the right connector on the classpath. For eventual-consistency and
+    rename issues use a proper committer. Confirm the job has credentials for the
+    bucket."
+  verification: "A plain list of the path from the same job shows the files, then
+    the read runs."
+  version_range: ""
+  source: "https://hadoop.apache.org/docs/stable/hadoop-aws/tools/hadoop-aws/index.html"
+  confidence: 0.6
+  status: reported
+  scope: public
+  tags: [s3, paths, credentials]

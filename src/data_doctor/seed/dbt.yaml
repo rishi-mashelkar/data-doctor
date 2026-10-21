@@ -1,0 +1,76 @@
+- id: dbt-ref-node-not-found
+  engine: dbt
+  title: Compilation Error - depends on a node that was not found
+  signature: "Compilation Error depends on a node named which was not found ref"
+  symptom: "dbt compile or run fails saying a model depends on a node named X which
+    was not found."
+  root_cause: "A ref points at a model name that does not exist. Usual causes are a
+    typo, a renamed or deleted model, or a model in a package that is not
+    installed."
+  fix: "Check the ref name against the model file name, not the file path. If the
+    model was renamed, update every ref. If it lives in a package, run dbt deps so
+    the package is installed. Then dbt compile to confirm the graph resolves."
+  verification: "dbt compile succeeds and dbt ls shows the referenced model."
+  version_range: ""
+  source: "https://docs.getdbt.com/reference/dbt-jinja-functions/ref"
+  confidence: 0.72
+  status: reported
+  scope: public
+  tags: [compile, ref, dependencies]
+
+- id: dbt-relation-does-not-exist
+  engine: dbt
+  title: Database Error - relation does not exist
+  signature: "Database Error relation does not exist does not exist table not found"
+  symptom: "A model or test fails because a relation it reads does not exist in the
+    warehouse."
+  root_cause: "The upstream model has not been built in the target schema, the
+    source points at the wrong schema, or the role lacks grants to see it."
+  fix: "Build upstream first with dbt run --select +<model>. Confirm the source and
+    target schema in the profile match where the table actually lives. Check the
+    warehouse role has usage and select on that schema."
+  verification: "Query the relation directly as the dbt role, then dbt run --select
+    <model> succeeds."
+  version_range: ""
+  source: "https://docs.getdbt.com/docs/build/sources"
+  confidence: 0.68
+  status: reported
+  scope: public
+  tags: [database, schema, grants]
+
+- id: dbt-profile-not-found
+  engine: dbt
+  title: Could not find profile named X
+  signature: "Runtime Error Could not find profile named profiles.yml dbt_project"
+  symptom: "dbt fails at startup saying it could not find the named profile."
+  root_cause: "The profile key in dbt_project.yml does not match a profile in
+    profiles.yml, or profiles.yml is not on the search path."
+  fix: "Match the profile name in dbt_project.yml to the top-level key in
+    profiles.yml exactly. Confirm profiles.yml is in ~/.dbt or the path in
+    DBT_PROFILES_DIR. Run dbt debug to see which file dbt loaded."
+  verification: "dbt debug reports the profile and a successful connection."
+  version_range: ""
+  source: "https://docs.getdbt.com/docs/core/connect-data-platform/connection-profiles"
+  confidence: 0.75
+  status: reported
+  scope: public
+  tags: [profiles, config, connection]
+
+- id: dbt-18-tests-renamed-data-tests
+  engine: dbt
+  title: dbt 1.8 - tests config renamed to data_tests
+  signature: "deprecation tests config renamed data_tests dbt 1.8 moving"
+  symptom: "After upgrading to dbt 1.8 you see deprecation warnings about the tests
+    config, or custom test config under the tests key stops applying."
+  root_cause: "dbt 1.8 renamed the tests config and property key to data_tests. The
+    old tests key still parses for now but warns and will be removed."
+  fix: "Rename the tests key to data_tests in dbt_project.yml and in schema yml
+    config blocks. Keep generic tests defined as before. Re-run to clear the
+    warning."
+  verification: "dbt parse runs with no tests-key deprecation warning."
+  version_range: "dbt>=1.8"
+  source: "https://docs.getdbt.com/docs/dbt-versions/core-upgrade/upgrading-to-v1.8"
+  confidence: 0.7
+  status: reported
+  scope: public
+  tags: [upgrade, deprecation, version]

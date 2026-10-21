@@ -1,0 +1,84 @@
+- id: iceberg-nosuchtable
+  engine: iceberg
+  title: NoSuchTableException - table or catalog not found
+  signature: "NoSuchTableException Table does not exist catalog not configured namespace"
+  symptom: "A query fails with NoSuchTableException even though the table seems to
+    exist."
+  root_cause: "The session points at the wrong catalog, the catalog is not
+    configured, or the namespace is missing from the identifier. The same table
+    can be invisible under a different catalog name."
+  fix: "Configure the catalog for the session and use the full identifier catalog,
+    namespace, table. Confirm the catalog type and warehouse match where the table
+    was created, for example a REST, Glue, or Hadoop catalog. List namespaces to
+    confirm the path."
+  verification: "SHOW TABLES in the namespace lists the table, then the query
+    runs."
+  version_range: ""
+  source: "https://iceberg.apache.org/docs/latest/spark-configuration/"
+  confidence: 0.68
+  status: reported
+  scope: public
+  tags: [catalog, namespace, config]
+
+- id: iceberg-add-required-column
+  engine: iceberg
+  title: Cannot add a required column to an existing table
+  signature: "Incompatible change cannot add required column schema evolution not optional"
+  symptom: "A schema change fails because a required, non-null column cannot be
+    added to an existing table."
+  root_cause: "Existing rows have no value for a new required column, so Iceberg
+    refuses it to keep reads safe."
+  fix: "Add the column as optional, backfill values, then tighten the constraint if
+    your engine supports it. Design new columns as optional for forward
+    compatibility."
+  verification: "ALTER TABLE adds the optional column and a read of old files
+    returns null for it without error."
+  version_range: ""
+  source: "https://iceberg.apache.org/docs/latest/evolution/"
+  confidence: 0.7
+  status: reported
+  scope: public
+  tags: [schema-evolution, alter-table]
+
+- id: iceberg-commit-conflict
+  engine: iceberg
+  title: CommitFailedException - concurrent write conflict
+  signature: "CommitFailedException Cannot commit metadata location changed concurrent"
+  symptom: "A write fails with CommitFailedException because the table metadata
+    moved under it."
+  root_cause: "Two writers committed against the same snapshot. Iceberg uses
+    optimistic concurrency, so the losing commit must rebuild on the new snapshot
+    and retry."
+  fix: "Retry the commit so it replays on the latest snapshot. Raise the commit
+    retry settings for busy tables. Reduce overlap by partitioning writers or
+    serializing the ones that touch the same partitions."
+  verification: "The retried write commits and the new snapshot appears in the
+    table history."
+  version_range: ""
+  source: "https://iceberg.apache.org/docs/latest/reliability/"
+  confidence: 0.64
+  status: reported
+  scope: public
+  tags: [concurrency, commits, retry]
+
+- id: iceberg-stale-metadata-after-expire
+  engine: iceberg
+  title: FileNotFound after expiring snapshots
+  signature: "FileNotFoundException data file not found after expire_snapshots stale metadata"
+  symptom: "Reads fail with a missing data or manifest file after a maintenance
+    job."
+  root_cause: "A reader or a cached metadata pointer still references files that
+    expire_snapshots or remove_orphan_files deleted. A stale metadata pointer in
+    the catalog can also point at a removed file."
+  fix: "Refresh the table so the reader loads the current metadata. Confirm the
+    catalog metadata pointer is current. Schedule expiry and orphan cleanup with a
+    retention window longer than your longest running read, so live queries never
+    lose their files."
+  verification: "After a table refresh the read runs, and the metadata pointer
+    matches the latest metadata.json."
+  version_range: ""
+  source: "https://iceberg.apache.org/docs/latest/maintenance/"
+  confidence: 0.62
+  status: reported
+  scope: public
+  tags: [maintenance, snapshots, retention]

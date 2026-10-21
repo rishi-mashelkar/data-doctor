@@ -1,0 +1,212 @@
+"""data-doctor command line.
+
+Commands:
+  diagnose   read an error (file or stdin), match the bank, print the fix
+  search     match free text against the bank
+  add        add one entry from a YAML file
+  feedback   record whether a suggested fix worked
+  seed       load the bundled seed entries into your bank
+  stats      show bank size and the fix-worked rate
+  version    print the version
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import sys
+from pathlib import Path
+
+import yaml
+
+from data_doctor import __version__
+from data_doctor.fingerprint import fingerprint
+from data_doctor.matcher import rank
+from data_doctor.models import Entry, Match
+from data_doctor.redact import redact
+from data_doctor.seed import load_seed
+from data_doctor.store import Bank
+
+
+def _bank(args: argparse.Namespace) -> Bank:
+    return Bank(home=Path(args.home) if args.home else None)
+
+
+def _read_input(positional: str | None) -> str:
+    if positional and positional != "-":
+        return Path(positional).read_text()
+    return sys.stdin.read()
+
+
+def _render(match: Match) -> str:
+    e = match.entry
+    lines = [
+        f"  [{e.id}]  {e.title}",
+        f"    engine: {e.engine}" + (f"  ·  applies to: {e.version_range}" if e.version_range else ""),
+        f"    cause:  {e.root_cause}" if e.root_cause else "",
+        f"    fix:    {e.fix}" if e.fix else "",
+        f"    verify: {e.verification}" if e.verification else "",
+        f"    source: {e.source}" if e.source else "",
+        f"    trust:  {e.status}, confidence {e.confidence}"
+        + (f", last verified {e.last_verified[:10]}" if e.last_verified else ""),
+        f"    why:    {'; '.join(match.why)}" if match.why else "",
+        f"    score:  {match.score}",
+    ]
+    return "\n".join(ln for ln in lines if ln)
+
+
+def _diagnose(args: argparse.Namespace) -> int:
+    text = _read_input(args.source)
+    if not text.strip():
+        print("Nothing to diagnose. Pass a file or pipe an error on stdin.", file=sys.stderr)
+        return 1
+    fp = fingerprint(text)
+    engine = args.engine or fp.engine_hint
+    with _bank(args) as bank:
+        if bank.count() == 0:
+            print("The bank is empty. Run `data-doctor seed` to load the starter entries.",
+                  file=sys.stderr)
+            return 1
+        candidates = bank.all(engine=engine if engine != "other" else None)
+        if not candidates:
+            candidates = bank.all()
+        matches = rank(fp, candidates, user_version=args.version or "", limit=args.limit)
+
+    if args.json:
+        print(json.dumps({
+            "engine": engine, "exception": fp.exception,
+            "matches": [{"id": m.entry.id, "score": m.score, "why": m.why,
+                         "fix": m.entry.fix, "source": m.entry.source,
+                         "confidence": m.entry.confidence, "status": m.entry.status}
+                        for m in matches],
+        }, indent=2))
+        return 0
+
+    if not matches:
+        print(f"No known match (engine guessed: {engine}, exception: {fp.exception or 'n/a'}).")
+        print("If you solve it, add it with `data-doctor add` so it is known next time.")
+        return 2
+    print(f"Diagnosis  (engine: {engine}, exception: {fp.exception or 'n/a'})\n")
+    for m in matches:
+        print(_render(m))
+        print()
+    print("Apply the top fix, then record the result:")
+    print(f"  data-doctor feedback {matches[0].entry.id} worked|failed")
+    return 0
+
+
+def _search(args: argparse.Namespace) -> int:
+    fp = fingerprint(args.text)
+    with _bank(args) as bank:
+        matches = rank(fp, bank.all(), user_version="", limit=args.limit, min_score=0.05)
+    if not matches:
+        print("No matches.")
+        return 2
+    for m in matches:
+        print(_render(m))
+        print()
+    return 0
+
+
+def _add(args: argparse.Namespace) -> int:
+    rows = yaml.safe_load(Path(args.file).read_text())
+    rows = rows if isinstance(rows, list) else [rows]
+    added = 0
+    with _bank(args) as bank:
+        for row in rows:
+            entry = Entry(**row)
+            if entry.scope == "public":
+                entry.signature, n1 = redact(entry.signature)
+                entry.symptom, n2 = redact(entry.symptom)
+                if n1 + n2:
+                    print(f"  redacted {n1 + n2} secret(s) from public entry {entry.id}")
+            bank.upsert(entry)
+            added += 1
+    print(f"Added {added} entr{'y' if added == 1 else 'ies'}.")
+    return 0
+
+
+def _feedback(args: argparse.Namespace) -> int:
+    worked = args.result == "worked"
+    with _bank(args) as bank:
+        entry = bank.record_feedback(args.entry_id, worked)
+    if entry is None:
+        print(f"No entry with id {args.entry_id}.", file=sys.stderr)
+        return 1
+    print(f"Recorded. {entry.id} is now confidence {entry.confidence} "
+          f"({entry.successes} worked, {entry.failures} failed).")
+    return 0
+
+
+def _seed(args: argparse.Namespace) -> int:
+    entries = load_seed()
+    with _bank(args) as bank:
+        n = bank.upsert_many(entries)
+        total = bank.count()
+    print(f"Loaded {n} seed entries. Bank now holds {total}.")
+    return 0
+
+
+def _stats(args: argparse.Namespace) -> int:
+    with _bank(args) as bank:
+        s = bank.stats()
+    print(f"Bank: {s['total']} entries, {s['verified']} verified.")
+    if s["by_engine"]:
+        print("By engine: " + ", ".join(f"{k} {v}" for k, v in s["by_engine"].items()))
+    rate = s["fix_worked_rate"]
+    print(f"Feedback: {s['feedback_count']} recorded, "
+          f"fix-worked rate {rate if rate is not None else 'n/a'}.")
+    return 0
+
+
+def _version(args: argparse.Namespace) -> int:
+    print(f"data-doctor {__version__}")
+    return 0
+
+
+def build_parser() -> argparse.ArgumentParser:
+    p = argparse.ArgumentParser(prog="data-doctor", description=__doc__.strip().splitlines()[0])
+    p.add_argument("--home", help="Bank directory (default: ~/.data-doctor or $DATA_DOCTOR_HOME)")
+    sub = p.add_subparsers(dest="command", required=True)
+
+    d = sub.add_parser("diagnose", help="Match an error against the bank and print the fix")
+    d.add_argument("source", nargs="?", help="Error file, or - for stdin (default stdin)")
+    d.add_argument("--engine", help="Override the detected engine")
+    d.add_argument("--version", help="Your version of the engine, e.g. 1.8.2")
+    d.add_argument("--limit", type=int, default=3, help="Max suggestions (default 3)")
+    d.add_argument("--json", action="store_true", help="Emit JSON")
+    d.set_defaults(func=_diagnose)
+
+    s = sub.add_parser("search", help="Match free text against the bank")
+    s.add_argument("text")
+    s.add_argument("--limit", type=int, default=5)
+    s.set_defaults(func=_search)
+
+    a = sub.add_parser("add", help="Add one or more entries from a YAML file")
+    a.add_argument("file")
+    a.set_defaults(func=_add)
+
+    f = sub.add_parser("feedback", help="Record whether a suggested fix worked")
+    f.add_argument("entry_id")
+    f.add_argument("result", choices=["worked", "failed"])
+    f.set_defaults(func=_feedback)
+
+    se = sub.add_parser("seed", help="Load the bundled seed entries into your bank")
+    se.set_defaults(func=_seed)
+
+    st = sub.add_parser("stats", help="Show bank size and the fix-worked rate")
+    st.set_defaults(func=_stats)
+
+    v = sub.add_parser("version", help="Print the version")
+    v.set_defaults(func=_version)
+    return p
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = build_parser()
+    args = parser.parse_args(argv)
+    return args.func(args)
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

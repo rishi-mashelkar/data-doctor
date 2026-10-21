@@ -1,0 +1,79 @@
+- id: airflow-broken-dag-importerror
+  engine: airflow
+  title: Broken DAG - ImportError / ModuleNotFoundError
+  signature: "Broken DAG ImportError ModuleNotFoundError No module named cannot import"
+  symptom: "The DAG shows a Broken DAG banner in the UI and does not schedule."
+  root_cause: "The DAG file imports a module that is not installed in the scheduler
+    and worker image, or a local helper that is not on the Python path."
+  fix: "Install the package in the same image the scheduler and workers run, not
+    only your laptop. For a shared helper, put it in a package under the dags
+    folder or on PYTHONPATH. Pin the version so every component matches."
+  verification: "Run python -c 'import <module>' inside a scheduler pod, then
+    airflow dags list-import-errors shows none."
+  version_range: ""
+  source: "https://airflow.apache.org/docs/apache-airflow/stable/best-practices.html"
+  confidence: 0.7
+  status: reported
+  scope: public
+  tags: [import, dependencies, dag-parse]
+
+- id: airflow-tasks-stuck-queued
+  engine: airflow
+  title: Tasks stuck in queued and never run
+  signature: "task stuck in queued state scheduler not running pool slots executor"
+  symptom: "Tasks sit in the queued state and never move to running."
+  root_cause: "No healthy scheduler is heartbeating, the pool has no free slots, or
+    the executor cannot place the task. A stale queued state can also outlive a
+    worker restart."
+  fix: "Confirm a scheduler is running and heartbeating. Check the pool has free
+    slots and raise it if needed. Clear the stuck task to re-queue it. On
+    Celery or Kubernetes executors, confirm workers are up and reachable."
+  verification: "airflow jobs check --job-type SchedulerJob returns healthy, and
+    the task moves to running after a clear."
+  version_range: ""
+  source: "https://airflow.apache.org/docs/apache-airflow/stable/core-concepts/pools.html"
+  confidence: 0.65
+  status: reported
+  scope: public
+  tags: [scheduler, pools, executor]
+
+- id: airflow-jinja-undefined
+  engine: airflow
+  title: Jinja UndefinedError in a templated field
+  signature: "jinja2 exceptions UndefinedError is undefined templated field render"
+  symptom: "A task fails at render time with a Jinja UndefinedError."
+  root_cause: "A templated field references a variable or XCom key that does not
+    exist in the context at render time, often a typo or a key pushed by a task
+    that did not run."
+  fix: "Check the variable name against the task context. For an optional value,
+    guard it with a default filter in the template. Confirm the upstream task
+    that pushes the XCom actually ran before the templated task renders."
+  verification: "Re-render with airflow tasks render <dag> <task> <date> and see
+    the field resolve."
+  version_range: ""
+  source: "https://airflow.apache.org/docs/apache-airflow/stable/templates-ref.html"
+  confidence: 0.6
+  status: reported
+  scope: public
+  tags: [jinja, templating, xcom]
+
+- id: airflow-mwaa-requirements-not-installing
+  engine: airflow
+  title: MWAA requirements or plugins not loading
+  signature: "mwaa requirements.txt not installing plugin not loaded dependency"
+  symptom: "On Amazon MWAA a new dependency or plugin is not available to DAGs."
+  root_cause: "MWAA installs requirements from the S3 object version pinned on the
+    environment. Uploading a new file without pointing the environment at the new
+    version leaves the old set in place. Constraints can also block an install."
+  fix: "Upload requirements.txt to S3, then update the MWAA environment to the new
+    object version so it reinstalls. Pin against the Airflow constraints file for
+    your version to avoid resolver failures. Check the MWAA log group for the
+    install output."
+  verification: "The requirements install log in CloudWatch shows the package, and
+    an import in a DAG succeeds."
+  version_range: ""
+  source: "https://docs.aws.amazon.com/mwaa/latest/userguide/working-dags-dependencies.html"
+  confidence: 0.6
+  status: reported
+  scope: public
+  tags: [mwaa, aws, dependencies]
