@@ -48,6 +48,38 @@ repro coverage for the heavier engines through the command verifier.
   default. Nothing runs on your systems without a yes.
 - Then prevent. Warn ahead of the change that would have broken you.
 
+## Ranked backlog (candidates)
+
+A prioritized list of candidate features, not a commitment. The order is value over
+effort. Value weighs four things: distance from the cloud competitors, real
+debugging pain removed, demo strength for a review, and fit with the offline and
+trust ethos. Effort weighs how much the current code already supports it. V is
+value and E is effort, scored S for small, M for medium, and L for large.
+
+| # | Feature | V | E | Note |
+|---|---------|---|---|------|
+| 1 | MCP server over the bank | H+ | M | A diagnose tool and the bank as resources. Callable from Claude Code and Cursor. The backbone for the agent loop. |
+| 2 | Iceberg hero example | H+ | M | A zero setup Iceberg case that frontier models fail and data-doctor solves. Reuses the repro engine. |
+| 3 | UI visual polish | M+ | S | Pure frontend on one page. The biggest first impression per hour. |
+| 4 | Local webhook endpoint | M | S | Diagnose over an HTTP POST. Unlocks the orchestrator hooks and CI. |
+| 5 | Bank page with add and edit | M+ | M | The read endpoint exists. Add writes, forms, and reuse redaction. |
+| 6 | Capture an unmatched error as a candidate | H | M | A review queue. The learning loop, without polluting the curated bank. |
+| 7 | Shareable triage report as local HTML | M | S/M | A writeup to paste into a ticket. Reuses triage. |
+| 8 | Last safe version on upgrade alerts | M | S/M | Name the breaking version and the last safe one. |
+| 9 | CLI fix patch and draft pull request body | M | S/M | A ready diff. It never opens a pull request. |
+| 10 | Airflow on_failure callback recipe | M+ | M | The smallest orchestrator hook. Builds on the webhook. |
+| 11 | Failure clustering across runs | M | M | Group the same failure across runs and dates. |
+| 12 | Severity split and flaky suppression | M | S/M | Halt against warn. Stop resurfacing transient errors. |
+| 13 | Dashboard: live issues, history, trends | M | L | Needs a new events table and accrued history first. |
+| 14 | Failure layer classifier | M | M | Source, ETL, transform, or output. Which layer to open first. |
+| 15 | Guardrail and test suggestions | M | M/L | Propose a check so the next occurrence is caught early. |
+| 16 | Dagster and Prefect hooks | M | M | After Airflow proves the shape. |
+| 17 | Bank import, export, and community entries | M+ | M | Grow the bank offline, with version provenance. |
+| 18 | Checks as code in YAML | M | L | Codify a known failure as a repeatable test. |
+| 19 | Fix recipes, named remediations | L/M | M | Overlaps the existing fix field. |
+| 20 | MCP client for dbt, Monte Carlo, Prefect | M | L | Off by default. Bring your own token. |
+| 21 | VS Code extension | M | L | The MCP server already covers most of this. |
+
 ## Design principles
 
 - Version-aware first. Tie the error to a recent version or changelog change.
