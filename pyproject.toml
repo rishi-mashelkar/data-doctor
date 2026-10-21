@@ -1,6 +1,6 @@
 [project]
 name = "data-doctor"
-version = "0.1.0"
+version = "0.2.0"
 description = "Diagnose data-pipeline failures against a version-aware knowledge bank, and get the exact fix."
 readme = "README.md"
 requires-python = ">=3.12"
@@ -21,7 +21,8 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=8.0", "ruff>=0.6"]
+ui = ["fastapi>=0.110", "uvicorn>=0.29"]
+dev = ["pytest>=8.0", "ruff>=0.6", "fastapi>=0.110", "uvicorn>=0.29", "httpx>=0.27"]
 
 [project.scripts]
 data-doctor = "data_doctor.cli:main"
@@ -40,6 +41,7 @@ packages = ["src/data_doctor"]
 
 [tool.hatch.build.targets.wheel.force-include]
 "src/data_doctor/seed" = "data_doctor/seed"
+"src/data_doctor/static" = "data_doctor/static"
 
 [tool.ruff]
 line-length = 100

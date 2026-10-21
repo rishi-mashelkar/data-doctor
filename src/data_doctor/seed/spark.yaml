@@ -79,3 +79,43 @@
   status: reported
   scope: public
   tags: [s3, paths, credentials]
+
+- id: spark-timeparser-upgrade
+  engine: spark
+  title: SparkUpgradeException - fail to parse datetime after 3.0
+  signature: "SparkUpgradeException fail to parse datetime spark.sql.legacy.timeParserPolicy LEGACY"
+  symptom: "After moving to Spark 3.0 or later, date and timestamp parsing fails
+    with a SparkUpgradeException."
+  root_cause: "Spark 3.0 switched to the java.time date formatter. Some patterns
+    that worked under the old SimpleDateFormat now fail or behave differently."
+  fix: "Fix the datetime pattern to the new formatter, which is the durable fix.
+    As a stopgap you can set spark.sql.legacy.timeParserPolicy to LEGACY to restore
+    the old behavior, then migrate the patterns."
+  verification: "The parse runs with the corrected pattern and no upgrade
+    exception."
+  version_range: ">=3.0"
+  source: "https://spark.apache.org/docs/latest/sql-migration-guide.html"
+  confidence: 0.68
+  status: reported
+  scope: public
+  tags: [upgrade, datetime, migration]
+
+- id: spark-classnotfound-missing-package
+  engine: spark
+  title: ClassNotFoundException - connector jar not on the classpath
+  signature: "ClassNotFoundException Failed to find data source class not found provider jar"
+  symptom: "A job fails to find a data source or a class, for example a Kafka, JDBC,
+    Delta, or Iceberg provider."
+  root_cause: "The connector jar is not on the classpath. The job was submitted
+    without the package, or with a version that does not match this Spark build."
+  fix: "Add the connector with --packages using coordinates that match your Spark
+    and Scala version, or put the jar on --jars and the driver class path. Confirm
+    the version lines up with the running Spark, since a mismatch also throws this."
+  verification: "The read or write with that format runs after the package is
+    added."
+  version_range: ""
+  source: "https://spark.apache.org/docs/latest/submitting-applications.html"
+  confidence: 0.64
+  status: reported
+  scope: public
+  tags: [classpath, connectors, submit]

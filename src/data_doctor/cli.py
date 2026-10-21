@@ -159,6 +159,46 @@ def _stats(args: argparse.Namespace) -> int:
     return 0
 
 
+def _check(args: argparse.Namespace) -> int:
+    from data_doctor.changelog import alerts, detect_versions
+
+    project = Path(args.path)
+    versions = detect_versions(project)
+    if not versions:
+        print(f"No pinned versions found under {project} "
+              "(looked in requirements.txt, pyproject.toml, dbt_project.yml).")
+        return 0
+    with _bank(args) as bank:
+        found = alerts(versions, bank.all())
+    detected = ", ".join(f"{k} {v}" for k, v in sorted(versions.items()))
+    print(f"Detected: {detected}\n")
+    if not found:
+        print("No known upgrade risks for these versions.")
+        return 0
+    print(f"{len(found)} upgrade risk(s) apply to your versions:\n")
+    for a in found:
+        print(f"  [{a.entry.id}]  {a.entry.title}")
+        print(f"    on {a.package} {a.version}, applies to {a.entry.version_range}")
+        print(f"    {a.entry.fix}")
+        print(f"    source: {a.entry.source}\n")
+    return 2
+
+
+def _serve(args: argparse.Namespace) -> int:
+    try:
+        import uvicorn
+    except ModuleNotFoundError:
+        print("The web UI needs extra packages. Install them with:\n"
+              "  pip install 'data-doctor[ui]'", file=sys.stderr)
+        return 1
+    from data_doctor.server import build_app
+
+    app = build_app(home=Path(args.home) if args.home else None)
+    print(f"data-doctor UI on http://{args.host}:{args.port}  (Ctrl-C to stop)")
+    uvicorn.run(app, host=args.host, port=args.port, log_level="warning")
+    return 0
+
+
 def _version(args: argparse.Namespace) -> int:
     print(f"data-doctor {__version__}")
     return 0
@@ -196,6 +236,15 @@ def build_parser() -> argparse.ArgumentParser:
 
     st = sub.add_parser("stats", help="Show bank size and the fix-worked rate")
     st.set_defaults(func=_stats)
+
+    ch = sub.add_parser("check", help="Warn about known upgrade risks for a project's versions")
+    ch.add_argument("path", nargs="?", default=".", help="Project directory (default .)")
+    ch.set_defaults(func=_check)
+
+    sv = sub.add_parser("serve", help="Run the local web UI")
+    sv.add_argument("--host", default="127.0.0.1")
+    sv.add_argument("--port", type=int, default=8322)
+    sv.set_defaults(func=_serve)
 
     v = sub.add_parser("version", help="Print the version")
     v.set_defaults(func=_version)

@@ -3,6 +3,19 @@
 All notable changes to this project are documented here.
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.2.0] - 2026-10-21
+
+### Added
+- Proactive changelog alerts. `data-doctor check` reads the versions a project
+  pins in requirements.txt, pyproject.toml, or dbt_project.yml, and warns about
+  known breaking changes in the bank that apply to those versions. Exits 2 when a
+  risk applies, so it fits a pre-upgrade CI step.
+- A local web UI. `data-doctor serve` opens a one-page app to diagnose an error,
+  browse and search the bank, and record feedback. FastAPI and uvicorn are an
+  optional extra (`pip install data-doctor[ui]`), so the core install stays light.
+- Six more seed entries, including upgrade-tagged ones for Airflow, dbt, and Spark
+  that power the changelog alerts. The bank now holds 22.
+
 ## [0.1.0] - 2026-10-21
 
 ### Added

@@ -15,8 +15,9 @@ Status: early. v1 diagnoses and suggests. It never changes your systems.
 ## Install
 
 ```
-pip install data-doctor     # not yet published; for now, from source:
+pip install data-doctor        # not yet published; for now, from source:
 pip install -e .
+pip install -e ".[ui]"         # also install the web UI
 ```
 
 ## Quickstart
@@ -34,6 +35,25 @@ You can also pipe an error straight in:
 ```
 spark-submit job.py 2>&1 | data-doctor diagnose --engine spark --version 3.5.0
 ```
+
+## Catch breaks before they happen
+
+`data-doctor check` reads the versions your project pins and warns about known
+breaking changes that apply, before an upgrade bites you.
+
+```
+data-doctor check .     # reads requirements.txt, pyproject.toml, dbt_project.yml
+```
+
+## Web UI
+
+```
+pip install -e ".[ui]"
+data-doctor serve       # opens on http://127.0.0.1:8322
+```
+
+Paste an error, get the ranked fixes, browse and search the bank, and record
+whether a fix worked. The UI runs locally against the same bank as the CLI.
 
 ## How it works
 
@@ -62,6 +82,8 @@ data-doctor add my-fix.yaml
 | Command | What it does |
 | --- | --- |
 | diagnose | Match an error (file or stdin) and print the fix |
+| check | Warn about known upgrade risks for a project's pinned versions |
+| serve | Run the local web UI |
 | search | Match free text against the bank |
 | add | Add entries from a YAML file |
 | feedback | Record whether a suggested fix worked |

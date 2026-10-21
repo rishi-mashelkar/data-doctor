@@ -82,3 +82,25 @@
   status: reported
   scope: public
   tags: [maintenance, snapshots, retention]
+
+- id: iceberg-write-schema-mismatch
+  engine: iceberg
+  title: Cannot write incompatible data to table
+  signature: "Cannot write incompatible data to table field type mismatch missing column schema"
+  symptom: "A write fails because the DataFrame schema does not match the table
+    schema."
+  root_cause: "A column type differs, a required column is missing, or the columns
+    are matched by position when the order differs. Iceberg checks the write
+    against the table schema to keep reads safe."
+  fix: "Align the DataFrame to the table. Cast columns to the table types and add
+    any missing columns. Prefer writing by name rather than by position, so column
+    order does not matter. For a genuine new column, evolve the schema first as an
+    optional column."
+  verification: "The write runs and a read returns the new rows with the right
+    types."
+  version_range: ""
+  source: "https://iceberg.apache.org/docs/latest/spark-writes/"
+  confidence: 0.64
+  status: reported
+  scope: public
+  tags: [write, schema, types]

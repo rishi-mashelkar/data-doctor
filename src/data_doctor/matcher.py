@@ -14,7 +14,7 @@ import re
 from data_doctor.fingerprint import Fingerprint, fingerprint
 from data_doctor.models import Entry, Match
 
-__all__ = ["rank"]
+__all__ = ["rank", "version_applies"]
 
 _VER = re.compile(r"(\d+)\.(\d+)(?:\.(\d+))?")
 _OPS = {">=": operator.ge, ">": operator.gt, "<=": operator.le,
@@ -27,10 +27,11 @@ def _jaccard(a: set[str], b: set[str]) -> float:
     return len(a & b) / len(a | b)
 
 
-def _version_applies(user_version: str, version_range: str) -> bool | None:
+def version_applies(user_version: str, version_range: str) -> bool | None:
     """Best-effort: does the user's version fall in the entry's range?
     Returns True, False, or None when we cannot tell. v1 keeps this light and
-    only reads >= and < bounds on major.minor."""
+    only reads >= and < bounds on major.minor. Public so the changelog check can
+    reuse the same version logic the matcher uses."""
     if not user_version or not version_range:
         return None
     uv = _VER.search(user_version)
@@ -73,7 +74,7 @@ def _score(query: Fingerprint, entry: Entry, user_version: str) -> Match:
         score += 0.15
         why.append(f"engine match: {entry.engine}")
 
-    applies = _version_applies(user_version, entry.version_range)
+    applies = version_applies(user_version, entry.version_range)
     if applies is True:
         score += 0.15
         why.append(f"version fits {entry.version_range}")

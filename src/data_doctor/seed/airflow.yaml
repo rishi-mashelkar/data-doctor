@@ -77,3 +77,43 @@
   status: reported
   scope: public
   tags: [mwaa, aws, dependencies]
+
+- id: airflow-schedule-interval-deprecated
+  engine: airflow
+  title: schedule_interval is deprecated, use schedule
+  signature: "deprecation schedule_interval is deprecated use the schedule parameter DAG"
+  symptom: "A DAG warns that schedule_interval is deprecated, or scheduling behaves
+    oddly after an Airflow upgrade."
+  root_cause: "Airflow 2.4 unified schedule_interval and timetable under a single
+    schedule parameter. The old keyword still parses but is deprecated."
+  fix: "Set schedule= on the DAG instead of schedule_interval=. A cron string, a
+    timedelta, or a preset like @daily all pass to schedule. Remove the old
+    keyword."
+  verification: "airflow dags list shows the expected next run and no deprecation
+    warning on parse."
+  version_range: ">=2.4"
+  source: "https://airflow.apache.org/docs/apache-airflow/stable/authoring-and-scheduling/timetable.html"
+  confidence: 0.7
+  status: reported
+  scope: public
+  tags: [upgrade, deprecation, scheduling]
+
+- id: airflow-zombie-task
+  engine: airflow
+  title: Zombie task - detected as externally killed
+  signature: "zombie job detected task instance externally killed heartbeat marked failed"
+  symptom: "A task is marked failed with a zombie or externally-killed message even
+    though the code did not raise."
+  root_cause: "The task stopped sending heartbeats, so the scheduler reaped it. The
+    usual cause is a worker that was killed, ran out of memory, or had its pod
+    evicted."
+  fix: "Check worker memory and the pod events for an OOM kill or eviction. Give the
+    task more resources or split the work. If heartbeats are merely slow under
+    load, raise the zombie detection threshold. Then clear the task to rerun."
+  verification: "The rerun completes, and worker memory stays under its limit."
+  version_range: ""
+  source: "https://airflow.apache.org/docs/apache-airflow/stable/core-concepts/tasks.html"
+  confidence: 0.6
+  status: reported
+  scope: public
+  tags: [workers, memory, heartbeat]

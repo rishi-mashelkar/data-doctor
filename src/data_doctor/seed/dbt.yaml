@@ -68,9 +68,28 @@
     config blocks. Keep generic tests defined as before. Re-run to clear the
     warning."
   verification: "dbt parse runs with no tests-key deprecation warning."
-  version_range: "dbt>=1.8"
+  version_range: ">=1.8"
   source: "https://docs.getdbt.com/docs/dbt-versions/core-upgrade/upgrading-to-v1.8"
   confidence: 0.7
   status: reported
   scope: public
   tags: [upgrade, deprecation, version]
+
+- id: dbt-duplicate-model-name
+  engine: dbt
+  title: Compilation Error - two resources with the same name
+  signature: "Compilation Error dbt found two models with the name duplicate resource name"
+  symptom: "dbt fails to parse because two models, or two resources, share the same
+    name."
+  root_cause: "dbt requires resource names to be unique across the whole project,
+    regardless of folder. A copied or renamed file often leaves two with one name."
+  fix: "Rename one of the two so every model name is unique. Folders do not
+    namespace the name, so the file names themselves must differ. Then dbt parse to
+    confirm."
+  verification: "dbt parse succeeds with no duplicate-name error."
+  version_range: ""
+  source: "https://docs.getdbt.com/reference/resource-properties/resource-path"
+  confidence: 0.72
+  status: reported
+  scope: public
+  tags: [compile, naming]

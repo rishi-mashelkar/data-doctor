@@ -12,6 +12,10 @@ it is time-to-recovery trending to near zero.
 
 ## Phases
 
+Shipped so far: Phase 1, plus proactive changelog alerts and a local web UI from
+Phase 2 and 3. Still ahead in Phase 2: verified fixes that run a repro, and the
+semantic match tier.
+
 ### Phase 1 - diagnose and suggest (v1, now)
 - Fingerprint an error, match the bank, suggest the exact fix with provenance.
 - Local offline match. Airflow, dbt, Spark, Iceberg.
