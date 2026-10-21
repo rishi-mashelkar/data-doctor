@@ -23,7 +23,10 @@ _COLUMNS = [
     "id", "engine", "title", "signature", "symptom", "root_cause", "fix",
     "verification", "version_range", "source", "confidence", "status", "scope",
     "tags", "successes", "failures", "created_at", "updated_at", "last_verified",
+    "repro",
 ]
+#: Columns stored as JSON text and parsed back into Python objects on read.
+_JSON_COLUMNS = {"tags", "repro"}
 
 
 def default_home() -> Path:
@@ -49,10 +52,13 @@ class Bank:
                 version_range VARCHAR, source VARCHAR, confidence DOUBLE,
                 status VARCHAR, scope VARCHAR, tags VARCHAR,
                 successes INTEGER, failures INTEGER,
-                created_at VARCHAR, updated_at VARCHAR, last_verified VARCHAR
+                created_at VARCHAR, updated_at VARCHAR, last_verified VARCHAR,
+                repro VARCHAR
             )
             """
         )
+        # Migrate banks created before the repro column existed.
+        self._con.execute("ALTER TABLE entries ADD COLUMN IF NOT EXISTS repro VARCHAR")
 
     def close(self) -> None:
         self._con.close()
@@ -68,6 +74,7 @@ class Bank:
     def upsert(self, entry: Entry) -> None:
         row = entry.model_dump()
         row["tags"] = json.dumps(row.get("tags") or [])
+        row["repro"] = json.dumps(row["repro"]) if row.get("repro") else None
         placeholders = ", ".join("?" for _ in _COLUMNS)
         self._con.execute(
             f"INSERT OR REPLACE INTO entries ({', '.join(_COLUMNS)}) VALUES ({placeholders})",
@@ -92,6 +99,7 @@ class Bank:
     def _to_entry(self, row: tuple) -> Entry:
         data = dict(zip(_COLUMNS, row, strict=True))
         data["tags"] = json.loads(data["tags"]) if data["tags"] else []
+        data["repro"] = json.loads(data["repro"]) if data["repro"] else None
         return Entry(**data)
 
     def get(self, entry_id: str) -> Entry | None:

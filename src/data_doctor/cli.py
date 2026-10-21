@@ -159,6 +159,48 @@ def _stats(args: argparse.Namespace) -> int:
     return 0
 
 
+def _promote(entry, result) -> None:
+    """A passed repro marks the entry verified and lifts its confidence floor."""
+    from data_doctor.models import now_iso
+
+    entry.status = "verified"
+    entry.last_verified = now_iso()
+    entry.confidence = max(entry.confidence, 0.8)
+
+
+def _verify(args: argparse.Namespace) -> int:
+    from data_doctor.verify import run_repro
+
+    if not args.all and not args.entry_id:
+        print("Pass an entry id, or --all.", file=sys.stderr)
+        return 1
+    project = Path(args.project) if args.project else None
+    with _bank(args) as bank:
+        targets = bank.all() if args.all else [bank.get(args.entry_id)]
+        if not args.all and targets[0] is None:
+            print(f"No entry with id {args.entry_id}.", file=sys.stderr)
+            return 1
+        targets = [e for e in targets if e is not None and e.repro]
+        if not targets:
+            print("Nothing to verify (no entry with a repro here).")
+            return 0
+        passed = failed = skipped = 0
+        for entry in targets:
+            result = run_repro(entry.repro, project=project, allow_commands=args.allow_commands)
+            mark = {"passed": "✓", "failed": "✗", "skipped": "–"}[result.status]
+            print(f"  {mark} {entry.id}: {result.detail}")
+            if result.status == "passed":
+                _promote(entry, result)
+                bank.upsert(entry)
+                passed += 1
+            elif result.status == "failed":
+                failed += 1
+            else:
+                skipped += 1
+    print(f"\nVerified {passed}, failed {failed}, skipped {skipped}.")
+    return 1 if failed else 0
+
+
 def _check(args: argparse.Namespace) -> int:
     from data_doctor.changelog import alerts, detect_versions
 
@@ -240,6 +282,14 @@ def build_parser() -> argparse.ArgumentParser:
     ch = sub.add_parser("check", help="Warn about known upgrade risks for a project's versions")
     ch.add_argument("path", nargs="?", default=".", help="Project directory (default .)")
     ch.set_defaults(func=_check)
+
+    vf = sub.add_parser("verify", help="Run an entry's repro to confirm the fix, mark it verified")
+    vf.add_argument("entry_id", nargs="?", help="Entry to verify (omit with --all)")
+    vf.add_argument("--all", action="store_true", help="Verify every entry that has a repro")
+    vf.add_argument("--project", help="Project dir for command-based repros")
+    vf.add_argument("--allow-commands", action="store_true", dest="allow_commands",
+                    help="Allow repros that run a tool (dbt, spark-submit, …). Off by default.")
+    vf.set_defaults(func=_verify)
 
     sv = sub.add_parser("serve", help="Run the local web UI")
     sv.add_argument("--host", default="127.0.0.1")

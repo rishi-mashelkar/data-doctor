@@ -12,9 +12,9 @@ it is time-to-recovery trending to near zero.
 
 ## Phases
 
-Shipped so far: Phase 1, plus proactive changelog alerts and a local web UI from
-Phase 2 and 3. Still ahead in Phase 2: verified fixes that run a repro, and the
-semantic match tier.
+Shipped so far: Phase 1, plus verified fixes (a sandboxed repro runner), proactive
+changelog alerts, and a local web UI. Still ahead in Phase 2: the semantic match
+tier, and repro coverage for the heavier engines through the command verifier.
 
 ### Phase 1 - diagnose and suggest (v1, now)
 - Fingerprint an error, match the bank, suggest the exact fix with provenance.

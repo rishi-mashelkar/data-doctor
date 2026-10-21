@@ -8,9 +8,10 @@ the fix and tell data-doctor if it worked. The bank gets better with every corre
 
 It is not another model that guesses at your stack trace. It is a curated,
 version-aware bank for data engineering, with an instant local match that runs
-offline. v1 covers Airflow, dbt, Spark, and Iceberg.
+offline. It covers Airflow, dbt, Spark, Iceberg, and DuckDB.
 
-Status: early. v1 diagnoses and suggests. It never changes your systems.
+Status: early. It diagnoses and suggests. It never changes your systems. A fix can
+carry a reproduction that data-doctor runs in a sandbox to mark it verified.
 
 ## Install
 
@@ -44,6 +45,21 @@ breaking changes that apply, before an upgrade bites you.
 ```
 data-doctor check .     # reads requirements.txt, pyproject.toml, dbt_project.yml
 ```
+
+## Verified fixes
+
+An entry can carry a reproduction. `data-doctor verify` runs it and, if the error
+reproduces and the fix runs clean, marks the entry verified.
+
+```
+data-doctor verify --all           # run every repro, mark the ones that pass
+data-doctor verify duckdb-catalog-table-missing
+```
+
+The default verifier runs SQL in a sandboxed in-memory DuckDB, with file and
+network access turned off. A second verifier can run a tool like dbt or
+spark-submit against your project, but only with `--allow-commands`, and only for
+an allowlisted tool. The tool runs nothing on its own.
 
 ## Web UI
 
@@ -82,6 +98,7 @@ data-doctor add my-fix.yaml
 | Command | What it does |
 | --- | --- |
 | diagnose | Match an error (file or stdin) and print the fix |
+| verify | Run an entry's reproduction and mark it verified if it passes |
 | check | Warn about known upgrade risks for a project's pinned versions |
 | serve | Run the local web UI |
 | search | Match free text against the bank |

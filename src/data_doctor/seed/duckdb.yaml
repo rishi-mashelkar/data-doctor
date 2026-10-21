@@ -1,0 +1,70 @@
+- id: duckdb-binder-column-not-found
+  engine: duckdb
+  title: Binder Error - referenced column not found
+  signature: "Binder Error Referenced column not found in FROM clause column does not exist"
+  symptom: "A query fails with a Binder Error that a referenced column was not found."
+  root_cause: "The column name is wrong or not in the referenced tables. DuckDB
+    reports the candidate names it did find."
+  fix: "Use one of the candidate column names DuckDB lists, or qualify the column
+    with its table alias when a join makes it ambiguous. Check for a typo or a
+    renamed column."
+  verification: "The corrected select runs with no Binder Error."
+  version_range: ""
+  source: "https://duckdb.org/docs/sql/expressions/star"
+  confidence: 0.75
+  status: reported
+  scope: public
+  tags: [sql, binder, columns]
+  repro:
+    verifier: duckdb_sql
+    setup:
+      - "CREATE TABLE t (id INTEGER, amount DOUBLE)"
+    failing: "SELECT amt FROM t"
+    expect_error: "not found"
+    fixed: "SELECT amount FROM t"
+
+- id: duckdb-catalog-table-missing
+  engine: duckdb
+  title: Catalog Error - table does not exist
+  signature: "Catalog Error Table with name does not exist did you mean"
+  symptom: "A query fails with a Catalog Error that a table does not exist."
+  root_cause: "The table was never created in this database or schema, or the name
+    is misspelled. DuckDB often suggests a close name."
+  fix: "Create or attach the table first, or fix the name to the one that exists.
+    If it lives in another schema, qualify it as schema.table."
+  verification: "The query runs once the table exists under that name."
+  version_range: ""
+  source: "https://duckdb.org/docs/sql/statements/create_table"
+  confidence: 0.75
+  status: reported
+  scope: public
+  tags: [catalog, tables]
+  repro:
+    verifier: duckdb_sql
+    setup: []
+    failing: "SELECT * FROM orders"
+    expect_error: "orders"
+    fixed: "CREATE TABLE orders (id INTEGER); SELECT * FROM orders"
+
+- id: duckdb-conversion-error
+  engine: duckdb
+  title: Conversion Error - value does not fit the target type
+  signature: "Conversion Error Could not convert string to INTEGER invalid cast"
+  symptom: "A cast or insert fails with a Conversion Error."
+  root_cause: "A value cannot convert to the target type, for example a non-numeric
+    string cast to INTEGER."
+  fix: "Clean or filter the bad values first, or use TRY_CAST so bad values become
+    NULL instead of raising. Confirm the column type matches the data."
+  verification: "TRY_CAST returns NULL for the bad value rather than raising."
+  version_range: ""
+  source: "https://duckdb.org/docs/sql/expressions/cast"
+  confidence: 0.72
+  status: reported
+  scope: public
+  tags: [cast, types]
+  repro:
+    verifier: duckdb_sql
+    setup: []
+    failing: "SELECT CAST('abc' AS INTEGER)"
+    expect_error: "conversion"
+    fixed: "SELECT TRY_CAST('abc' AS INTEGER)"

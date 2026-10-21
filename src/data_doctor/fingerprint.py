@@ -30,7 +30,9 @@ _ENGINE_HINTS = {
     "airflow": ("airflow", "dag ", "dagbag", "scheduler", "executor", "task_instance", "mwaa"),
     "dbt": ("dbt", "compilation error", "profiles.yml", "dbt_project", "ref(", "source(", "macro"),
     "spark": ("spark", "pyspark", "py4j", "executor lost", "analysisexception", "sparkcontext"),
-    "iceberg": ("iceberg", "snapshot", "nosuchtable", "manifest", "metadata.json", "catalog"),
+    "iceberg": ("iceberg", "snapshot", "nosuchtable", "manifest", "metadata.json"),
+    "duckdb": ("duckdb", "binder error", "conversion error", "parser error",
+               "catalog error"),
 }
 
 

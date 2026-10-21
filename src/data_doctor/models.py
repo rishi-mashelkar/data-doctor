@@ -15,7 +15,7 @@ from pydantic import BaseModel, Field
 __all__ = ["ENGINES", "Entry", "Match", "now_iso"]
 
 #: The engines data-doctor knows in v1. "other" is the catch-all.
-ENGINES = ("airflow", "dbt", "spark", "iceberg", "other")
+ENGINES = ("airflow", "dbt", "spark", "iceberg", "duckdb", "other")
 
 
 def now_iso() -> str:
@@ -46,6 +46,9 @@ class Entry(BaseModel):
     tags: list[str] = Field(default_factory=list)
     successes: int = 0
     failures: int = 0
+    #: Optional reproduction spec a verifier can run to confirm the fix. One of the
+    #: built-in verifiers (e.g. duckdb_sql, command). None means not reproducible yet.
+    repro: dict | None = None
     created_at: str = Field(default_factory=now_iso)
     updated_at: str = Field(default_factory=now_iso)
     last_verified: str = ""
