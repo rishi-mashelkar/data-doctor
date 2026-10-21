@@ -513,3 +513,224 @@
   status: reported
   scope: public
   tags: [tests, packages]
+
+- id: dbt-missing-project-yml
+  engine: dbt
+  title: The working directory is not a dbt project
+  signature: "fatal: Not a dbt project (or any of the parent directories). Missing dbt_project.yml file"
+  symptom: "dbt exits at startup with a Runtime Error. It says this directory is not a
+    dbt project because dbt_project.yml is missing."
+  root_cause: "The command ran outside the project root, or the project file was
+    never added."
+  fix: "Change to the directory that contains dbt_project.yml. Create that file if
+    it is absent, with a name and a profile. You can also pass --project-dir to
+    point at the project."
+  verification: "dbt debug finds dbt_project.yml and moves past the project check."
+  version_range: ""
+  source: "https://docs.getdbt.com/guides/debug-errors"
+  confidence: 0.72
+  status: reported
+  scope: public
+  tags: [runtime, project]
+
+- id: dbt-yaml-mapping-values
+  engine: dbt
+  title: Schema YAML indentation is invalid
+  signature: "mapping values are not allowed in this context"
+  symptom: "dbt fails while reading a YAML file. The parser says mapping values are
+    not allowed in this context."
+  root_cause: "A nested key is indented too far, or the file uses a tab. dbt cannot
+    turn that YAML into a dictionary."
+  fix: "Open the file and the line in the message. Align the child keys with the
+    other keys under that item. Use spaces, not a tab. Run dbt parse again."
+  verification: "dbt parse reads the file and does not report a syntax error."
+  version_range: ""
+  source: "https://docs.getdbt.com/guides/debug-errors"
+  confidence: 0.70
+  status: reported
+  scope: public
+  tags: [parse, yaml]
+
+- id: dbt-jinja-unclosed-macro
+  engine: dbt
+  title: A Jinja macro is missing its close tag
+  signature: "Reached EOF without finding a close tag for macro (searched from line 1)"
+  symptom: "Compile fails inside a macro file. Jinja reached the end of the file
+    without a close tag for macro."
+  root_cause: "The macro block has no endmacro tag, or an if or for block was closed
+    in the wrong order."
+  fix: "Open the macro file named in the message. Add the missing endmacro tag. If
+    the blocks are nested, close the inner block first. Then compile again."
+  verification: "dbt compile gets past that macro file."
+  version_range: ""
+  source: "https://docs.getdbt.com/guides/debug-errors"
+  confidence: 0.71
+  status: reported
+  scope: public
+  tags: [compile, jinja, macro]
+
+- id: dbt-schema-yml-unknown-property
+  engine: dbt
+  title: Schema YAML has a property dbt does not allow
+  signature: "Invalid models config given in models/schema.yml @ models"
+  symptom: "Parse fails on a schema file. dbt says the models config is invalid
+    because a property was not expected."
+  root_cause: "The YAML is valid, but a key under a model is not a property dbt
+    accepts. A typo or an old key causes this."
+  fix: "Open the schema file and find the key named in the message. Remove it or
+    rename it to a documented model property. Then run dbt parse."
+  verification: "dbt parse accepts the schema file."
+  version_range: ""
+  source: "https://docs.getdbt.com/guides/debug-errors"
+  confidence: 0.69
+  status: reported
+  scope: public
+  tags: [parse, yaml, schema]
+
+- id: dbt-project-yml-unknown-key
+  engine: dbt
+  title: dbt_project.yml has a key dbt does not allow
+  signature: "Encountered an error while reading the project"
+  symptom: "dbt stops while reading the project file. The message states the
+    unexpected property and points at dbt_project.yml."
+  root_cause: "A top level key in dbt_project.yml is not in the project schema. A
+    typo, or a key copied from a schema file, causes this."
+  fix: "Remove the key named in the message, or move it under the correct block.
+    Check the dbt_project.yml reference for allowed keys. Run dbt debug."
+  verification: "dbt debug reports that dbt_project.yml is found and valid."
+  version_range: ""
+  source: "https://docs.getdbt.com/guides/debug-errors"
+  confidence: 0.72
+  status: reported
+  scope: public
+  tags: [runtime, project]
+
+- id: dbt-package-config-version
+  engine: dbt
+  title: An installed package still uses config version 1
+  signature: "Invalid config version: 1, expected 2"
+  symptom: "dbt fails while reading an installed package. It says the config version
+    is 1 and that it expected 2."
+  root_cause: "packages.yml pins an old package whose own dbt_project.yml still sets
+    config-version to 1. Old dbt_utils releases do this."
+  fix: "Set that package to a current version in packages.yml. Run dbt deps so the
+    new files install. Then run dbt parse."
+  verification: "dbt deps finishes, and parse no longer reports an invalid config
+    version."
+  version_range: ""
+  source: "https://docs.getdbt.com/guides/debug-errors"
+  confidence: 0.73
+  status: reported
+  scope: public
+  tags: [packages, deps]
+
+- id: dbt-dispatch-missing-package
+  engine: dbt
+  title: Dispatch cannot find a package in the search order
+  signature: "In dispatch: Could not find package 'my_project'"
+  symptom: "Compile fails and says that dispatch could not find a package. The name
+    is one listed in search_order."
+  root_cause: "A package in the dispatch search order defines no macros. dbt only
+    searches packages that contain macros."
+  fix: "Remove that package from search_order, or add a macro to the package. Keep
+    the project name in the list only when the project defines macros. Then
+    compile again."
+  verification: "dbt compile no longer reports that missing package."
+  version_range: ""
+  source: "https://docs.getdbt.com/faqs/Troubleshooting/dispatch-could-not-find-package"
+  confidence: 0.71
+  status: reported
+  scope: public
+  tags: [macros, dispatch]
+
+- id: dbt-fail-fast
+  engine: dbt
+  title: Fail fast stops the run on the first failure
+  signature: "Failing early due to test failure or runtime error"
+  symptom: "A run that uses fail fast exits after the first model failure. Later
+    models are cancelled, and dbt raises a FailFast Error."
+  root_cause: "The --fail-fast flag, or -x, is on. dbt stops the invocation after
+    the first failure instead of continuing."
+  fix: "Fix the Database Error printed above the FailFast Error. Drop the flag when
+    you want the rest of the selection to run."
+  verification: "The failed model builds, and a run without the flag finishes the
+    other models."
+  version_range: ""
+  source: "https://docs.getdbt.com/reference/global-configs/failing-fast"
+  confidence: 0.68
+  status: reported
+  scope: public
+  tags: [cli, runtime]
+
+- id: dbt-warehouse-sql-syntax
+  engine: dbt
+  title: The warehouse rejects the model SQL
+  signature: "syntax error line 14 at position 4 unexpected 'from'"
+  symptom: "A model fails with a Database Error. Snowflake reports a syntax error
+    and points at an unexpected token in the SQL."
+  root_cause: "The model SQL, or the SQL dbt compiled from it, is not valid in the
+    warehouse. dbt returns the warehouse message as is."
+  fix: "Open the model file and the compiled SQL named in the message. Fix the SQL
+    at the reported line. Run that model again."
+  verification: "dbt run for that model completes, and the syntax error is gone."
+  version_range: ""
+  source: "https://docs.getdbt.com/guides/debug-errors"
+  confidence: 0.66
+  status: reported
+  scope: public
+  tags: [database, sql]
+
+- id: dbt-snapshot-not-snapshot-table
+  engine: dbt
+  title: The snapshot target is not a snapshot table
+  signature: "Snapshot target is not a snapshot table (missing dbt_scd_id, dbt_valid_from, dbt_valid_to)"
+  symptom: "dbt snapshot stops because the target table is not a snapshot table.
+    The message lists missing columns, including dbt_scd_id."
+  root_cause: "That table was created as a normal table, so it has none of the
+    snapshot meta columns. dbt will not append history to it."
+  fix: "Drop the target table. Run dbt snapshot so dbt creates a new table with the
+    meta columns. Do not set materialized to table on the snapshot."
+  verification: "dbt snapshot completes, and the table contains dbt_scd_id,
+    dbt_valid_from, and dbt_valid_to."
+  version_range: ""
+  source: "https://docs.getdbt.com/faqs/Snapshots/snapshot-target-is-not-a-snapshot-table"
+  confidence: 0.73
+  status: reported
+  scope: public
+  tags: [snapshots]
+
+- id: dbt-snapshot-materialized-config
+  engine: dbt
+  title: A snapshot must be materialized as snapshot
+  signature: "A snapshot must have a materialized value of 'snapshot'"
+  symptom: "dbt raises a Parsing Error on a snapshot file. It says the materialized
+    value must be snapshot."
+  root_cause: "The snapshot sets materialized to table or to another type. Since
+    dbt 1.4, dbt rejects that and will not build the snapshot as a plain table."
+  fix: "Set materialized to snapshot, or delete that config so the default stands.
+    Keep the strategy and unique_key. Then run dbt parse."
+  verification: "dbt parse accepts the snapshot file."
+  version_range: ""
+  source: "https://docs.getdbt.com/faqs/Snapshots/snapshot-target-is-not-a-snapshot-table"
+  confidence: 0.70
+  status: reported
+  scope: public
+  tags: [snapshots, parse]
+
+- id: dbt-ambiguous-database-id
+  engine: dbt
+  title: Two resources would build the same database object
+  signature: "dbt cannot create two resources with identical database representations"
+  symptom: "dbt compile fails because two resources resolve to one database object.
+    The message lists both resources."
+  root_cause: "An alias or a schema config makes two resources share one relation."
+  fix: "Change the alias or the schema on one resource in the message. Use a custom
+    schema if the two names should stay the same. Then compile again."
+  verification: "dbt compile finishes and does not report identical database
+    representations."
+  version_range: ""
+  source: "https://docs.getdbt.com/docs/build/custom-aliases"
+  confidence: 0.72
+  status: reported
+  scope: public
+  tags: [compile, alias]

@@ -478,3 +478,227 @@
   status: reported
   scope: public
   tags: [catalog, config]
+
+- id: iceberg-table-already-exists
+  engine: iceberg
+  title: Create fails because the table already exists
+  signature: "AlreadyExistsException: Table already exists"
+  symptom: "CREATE TABLE fails with AlreadyExistsException. The message says the
+    table already exists."
+  root_cause: "The catalog already stores that table name. A second create uses
+    the same identifier."
+  fix: "Use the existing table, or choose a new name. Drop the old table only
+    when you mean to remove it."
+  verification: "SHOW TABLES lists one table of that name. A second plain CREATE
+    TABLE still fails."
+  version_range: ""
+  source: "https://iceberg.apache.org/javadoc/1.10.0/org/apache/iceberg/exceptions/AlreadyExistsException.html"
+  confidence: 0.7
+  status: reported
+  scope: public
+  tags: [catalog, create]
+
+- id: iceberg-namespace-not-empty
+  engine: iceberg
+  title: Drop namespace fails because it is not empty
+  signature: "NamespaceNotEmptyException: Namespace is not empty. One or more tables exist"
+  symptom: "DROP NAMESPACE fails with NamespaceNotEmptyException. Iceberg says
+    the namespace is not empty."
+  root_cause: "The namespace still holds tables, views, or child namespaces. A
+    plain drop does not remove them."
+  fix: "Drop the tables and views in the namespace. Then drop the namespace.
+    Spark 3.3 can pass CASCADE when the catalog supports it."
+  verification: "The namespace lists no tables, and DROP NAMESPACE then
+    succeeds."
+  version_range: ""
+  source: "https://iceberg.apache.org/javadoc/1.10.0/org/apache/iceberg/exceptions/NamespaceNotEmptyException.html"
+  confidence: 0.66
+  status: reported
+  scope: public
+  tags: [namespace, catalog]
+
+- id: iceberg-view-missing
+  engine: iceberg
+  title: Load fails because the view does not exist
+  signature: "NoSuchViewException: View does not exist"
+  symptom: "A view read or DROP VIEW fails with NoSuchViewException. Iceberg
+    says the view does not exist."
+  root_cause: "No view has that name in this catalog. Loading an Iceberg table
+    as a view raises the same exception."
+  fix: "Create the view in this catalog, or read the object as a table. Check
+    SHOW VIEWS before you drop a name."
+  verification: "SHOW VIEWS lists the view, or the table query returns rows."
+  version_range: ""
+  source: "https://iceberg.apache.org/javadoc/1.10.0/org/apache/iceberg/exceptions/NoSuchViewException.html"
+  confidence: 0.68
+  status: reported
+  scope: public
+  tags: [views, catalog]
+
+- id: iceberg-not-an-iceberg-view
+  engine: iceberg
+  title: Metastore object is not an Iceberg view
+  signature: "NoSuchIcebergViewException: Not an iceberg view"
+  symptom: "Loading a view fails with NoSuchIcebergViewException. The message
+    says it is not an iceberg view."
+  root_cause: "A view or table exists at that name, but its type is not an
+    Iceberg view. A Hive view is a common case."
+  fix: "Read it with the engine that created it, or replace it with an Iceberg
+    view. Do not load a Hive view as an Iceberg view."
+  verification: "The object type is an Iceberg view, and a query of the view
+    returns rows."
+  version_range: ""
+  source: "https://iceberg.apache.org/javadoc/1.10.0/org/apache/iceberg/exceptions/NoSuchIcebergViewException.html"
+  confidence: 0.64
+  status: reported
+  scope: public
+  tags: [views, hive]
+
+- id: iceberg-rest-forbidden
+  engine: iceberg
+  title: REST catalog returns 403
+  signature: "ForbiddenException: Forbidden: Failed authorization checks"
+  symptom: "A REST catalog call fails with ForbiddenException. The server
+    rejected the call with HTTP 403."
+  root_cause: "The caller is known, but is not allowed to perform that action.
+    A 401 means the token itself was rejected."
+  fix: "Grant that principal access to the namespace or table. Use a token whose
+    role includes the action."
+  verification: "The same catalog call succeeds and the server does not return
+    403."
+  version_range: ""
+  source: "https://iceberg.apache.org/javadoc/1.10.0/org/apache/iceberg/exceptions/ForbiddenException.html"
+  confidence: 0.67
+  status: reported
+  scope: public
+  tags: [rest, auth]
+
+- id: iceberg-rest-unavailable
+  engine: iceberg
+  title: REST catalog returns 503
+  signature: "ServiceUnavailableException: Service unavailable"
+  symptom: "A REST catalog call fails with ServiceUnavailableException. The
+    server returns HTTP 503."
+  root_cause: "The catalog is not ready to serve the request. A commit whose
+    outcome is unknown is a different failure."
+  fix: "Retry the call after the catalog is ready. Check the server health
+    before you change the table name or the request."
+  verification: "The same catalog call succeeds once the server is ready."
+  version_range: ""
+  source: "https://iceberg.apache.org/javadoc/1.10.0/org/apache/iceberg/exceptions/ServiceUnavailableException.html"
+  confidence: 0.65
+  status: reported
+  scope: public
+  tags: [rest, catalog]
+
+- id: iceberg-rest-bad-request
+  engine: iceberg
+  title: REST catalog rejects the request
+  signature: "BadRequestException: Malformed request"
+  symptom: "A REST catalog call fails with BadRequestException. The client says
+    the request is malformed."
+  root_cause: "The server returned HTTP 400. An identifier, a body, or a property
+    value is not valid."
+  fix: "Read the text after Malformed request. Correct the identifier, the JSON,
+    or the property. Send the call again."
+  verification: "The same call returns a normal catalog response."
+  version_range: ""
+  source: "https://iceberg.apache.org/javadoc/1.10.0/org/apache/iceberg/exceptions/BadRequestException.html"
+  confidence: 0.66
+  status: reported
+  scope: public
+  tags: [rest, catalog]
+
+- id: iceberg-duplicate-wap-commit
+  engine: iceberg
+  title: WAP cherry pick was already published
+  signature: "DuplicateWAPCommitException: Duplicate request to cherry pick wap id that was published already"
+  symptom: "A WAP publish fails with DuplicateWAPCommitException. Iceberg says
+    that wap id was published already."
+  root_cause: "A cherry pick for this wap id already committed a snapshot.
+    Publishing it again would apply the same change twice."
+  fix: "Do not publish that wap id again. Read the snapshots table and confirm
+    the staged changes are already on the table."
+  verification: "The snapshots table shows one snapshot for that wap id. A
+    second publish is not started."
+  version_range: ""
+  source: "https://iceberg.apache.org/javadoc/1.10.0/org/apache/iceberg/exceptions/DuplicateWAPCommitException.html"
+  confidence: 0.72
+  status: reported
+  scope: public
+  tags: [wap, commits]
+
+- id: iceberg-cherrypick-ancestor
+  engine: iceberg
+  title: Cherry pick snapshot is already an ancestor
+  signature: "CherrypickAncestorCommitException: Cannot cherrypick snapshot already an ancestor"
+  symptom: "cherrypick_snapshot fails with CherrypickAncestorCommitException.
+    Iceberg refuses that snapshot."
+  root_cause: "The snapshot is already an ancestor of the current table, or it was
+    already picked to create an ancestor."
+  fix: "Choose a snapshot that is not an ancestor of the current table. Read
+    the snapshots table and pick an id outside this history."
+  verification: "The procedure returns a new snapshot id. The table history
+    lists that change once."
+  version_range: ""
+  source: "https://iceberg.apache.org/javadoc/1.10.0/org/apache/iceberg/exceptions/CherrypickAncestorCommitException.html"
+  confidence: 0.7
+  status: reported
+  scope: public
+  tags: [snapshots, commits]
+
+- id: iceberg-namespace-keys-conflict
+  engine: iceberg
+  title: Namespace update sets and removes one key
+  signature: "UnprocessableEntityException: Invalid namespace update, cannot simultaneously set and remove keys"
+  symptom: "A namespace property update fails with UnprocessableEntityException.
+    One key is both set and removed."
+  root_cause: "The request names the same key in the updates and in the
+    removals. The JSON parses, but Iceberg cannot apply both changes."
+  fix: "Send the key only in the updates, or only in the removals. Then retry
+    the update."
+  verification: "The namespace properties show the new value, or show the key
+    removed, and the call does not fail."
+  version_range: ""
+  source: "https://iceberg.apache.org/javadoc/1.10.0/org/apache/iceberg/exceptions/UnprocessableEntityException.html"
+  confidence: 0.68
+  status: reported
+  scope: public
+  tags: [namespace, rest]
+
+- id: iceberg-jdbc-connection-failed
+  engine: iceberg
+  title: JDBC catalog cannot open its database
+  signature: "UncheckedSQLException: Cannot initialize JDBC catalog: Connection failed"
+  symptom: "The JDBC catalog fails at startup with UncheckedSQLException. The
+    connection to the database failed."
+  root_cause: "The JDBC uri, user, or password is wrong, or the database
+    refused the connection."
+  fix: "Point the catalog uri at a live database. Set jdbc.user and
+    jdbc.password. Confirm the JDBC driver is on the classpath."
+  verification: "The session lists namespaces from that catalog."
+  version_range: ""
+  source: "https://iceberg.apache.org/javadoc/1.10.0/org/apache/iceberg/jdbc/UncheckedSQLException.html"
+  confidence: 0.66
+  status: reported
+  scope: public
+  tags: [jdbc, catalog]
+
+- id: iceberg-schema-type-unsupported
+  engine: iceberg
+  title: Schema uses a type the table format does not allow
+  signature: "IllegalStateException: Invalid schema is not supported until"
+  symptom: "A commit fails with IllegalStateException. Iceberg says the schema
+    is not supported until a later format version."
+  root_cause: "The schema has a type that needs a newer table format.
+    timestamp_ns, variant, and unknown need format version 3."
+  fix: "Set the table property format-version to 3 before you add that type. Or
+    change the column to a type the current format allows."
+  verification: "The commit succeeds, and format-version is high enough for
+    that type."
+  version_range: ""
+  source: "https://iceberg.apache.org/javadoc/1.10.0/org/apache/iceberg/Schema.html"
+  confidence: 0.63
+  status: reported
+  scope: public
+  tags: [schema, types]

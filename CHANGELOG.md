@@ -5,6 +5,10 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+- 48 seed entries for Airbyte, dbt, PySpark, and Iceberg. Ids are new and
+  status stays reported. The bank now holds 152.
+
 ## [0.4.0] - 2026-10-21
 
 ### Added

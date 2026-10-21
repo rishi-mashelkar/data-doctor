@@ -539,3 +539,226 @@
   status: reported
   scope: public
   tags: [sql, window]
+
+- id: spark-path-already-exists
+  engine: spark
+  title: Write fails because the path already exists
+  signature: "AnalysisException: [PATH_ALREADY_EXISTS] Path"
+  symptom: "A DataFrame write fails with PATH_ALREADY_EXISTS. The destination
+    path already exists."
+  root_cause: "The default save mode stops when the path exists. This is not
+    the failure for a job that reads a path and overwrites that same path."
+  fix: "Write to a new path. Or set the save mode to append or overwrite.
+    Choose overwrite only when you mean to replace the data."
+  verification: "The write finishes and a read of the destination shows the new
+    data."
+  version_range: ""
+  source: "https://spark.apache.org/docs/latest/sql-error-conditions.html"
+  confidence: 0.7
+  status: reported
+  scope: public
+  tags: [write, paths]
+
+- id: spark-invalid-array-index
+  engine: spark
+  title: Array index is outside the array
+  signature: "org.apache.spark.SparkArrayIndexOutOfBoundsException: [INVALID_ARRAY_INDEX] The index"
+  symptom: "A query fails with INVALID_ARRAY_INDEX. The index is outside the
+    array."
+  root_cause: "The index points past the last element, or before the first
+    element. Spark raises the error instead of returning null."
+  fix: "Use get() when a missing element should be null. Otherwise change the
+    index so it refers to an element that exists."
+  verification: "get() returns null for the bad index, or the corrected index
+    returns the element."
+  version_range: ""
+  source: "https://spark.apache.org/docs/latest/sql-error-conditions.html"
+  confidence: 0.68
+  status: reported
+  scope: public
+  tags: [sql, arrays]
+
+- id: spark-malformed-record-parsing
+  engine: spark
+  title: Parser rejects a malformed record
+  signature: "org.apache.spark.SparkException: [MALFORMED_RECORD_IN_PARSING.WITHOUT_SUGGESTION] Malformed records are detected in record parsing:"
+  symptom: "A read fails while parsing a record. The message includes FAILFAST."
+  root_cause: "The parser cannot read the row. The mode is FAILFAST.
+    FAILFAST stops the read instead of skipping the bad row."
+  fix: "Repair the bad record. Or set the mode option to PERMISSIVE.
+    A bad row then becomes null."
+  verification: "The read returns rows and the malformed record error is gone."
+  version_range: ""
+  source: "https://spark.apache.org/docs/latest/sql-error-conditions.html"
+  confidence: 0.66
+  status: reported
+  scope: public
+  tags: [parser, files]
+
+- id: spark-duplicated-map-key
+  engine: spark
+  title: Map build finds a duplicate key
+  signature: "org.apache.spark.SparkRuntimeException: [DUPLICATED_MAP_KEY] Duplicate map key"
+  symptom: "A query that builds a map fails with DUPLICATED_MAP_KEY."
+  root_cause: "Two entries use the same map key. spark.sql.mapKeyDedupPolicy
+    defaults to EXCEPTION. The query stops."
+  fix: "Remove the duplicate key. If the later value should win, set
+    spark.sql.mapKeyDedupPolicy to LAST_WIN."
+  verification: "The map is created and each key appears once."
+  version_range: ""
+  source: "https://spark.apache.org/docs/latest/sql-error-conditions.html"
+  confidence: 0.7
+  status: reported
+  scope: public
+  tags: [sql, maps]
+
+- id: spark-not-null-assert-violation
+  engine: spark
+  title: Null lands in a field that does not allow null
+  signature: "org.apache.spark.SparkRuntimeException: [NOT_NULL_ASSERT_VIOLATION] NULL value appeared in non-nullable field:"
+  symptom: "A job fails with NOT_NULL_ASSERT_VIOLATION. A null reached a field
+    that does not allow null."
+  root_cause: "The encoder schema marks the field as not null. The row contains
+    null. A Scala case class or a Java bean that uses a primitive type does
+    this."
+  fix: "Make the field nullable. The message points at scala.Option or a
+    nullable Java type such as java.lang.Integer. Or drop the null rows before
+    the encode step."
+  verification: "The action completes. Null rows are stored, or they are removed
+    before the encode."
+  version_range: ""
+  source: "https://spark.apache.org/docs/latest/sql-error-conditions.html"
+  confidence: 0.66
+  status: reported
+  scope: public
+  tags: [schema, nulls]
+
+- id: spark-num-columns-mismatch
+  engine: spark
+  title: Set operation inputs differ in column count
+  signature: "AnalysisException: [NUM_COLUMNS_MISMATCH] UNION can only be performed on inputs with the same number of columns"
+  symptom: "UNION fails with NUM_COLUMNS_MISMATCH. The inputs do not have the
+    same number of columns."
+  root_cause: "UNION, INTERSECT, and EXCEPT each require the same column count
+    on every input. The message prints the operator and both counts."
+  fix: "Select the same columns, in the same order, on each input. Add or drop
+    columns until the counts match."
+  verification: "The set operation returns rows. Each input has the same column
+    count."
+  version_range: ""
+  source: "https://spark.apache.org/docs/latest/sql-error-conditions.html"
+  confidence: 0.72
+  status: reported
+  scope: public
+  tags: [sql, union]
+
+- id: spark-unable-to-infer-schema
+  engine: spark
+  title: Spark cannot infer a file schema
+  signature: "AnalysisException: [UNABLE_TO_INFER_SCHEMA] Unable to infer schema for"
+  symptom: "A file read fails with UNABLE_TO_INFER_SCHEMA. Spark says the schema
+    must be set manually."
+  root_cause: "The path has no row Spark can use to infer a schema. Empty files
+    are the usual cause."
+  fix: "Pass an explicit schema to the reader. Confirm the path contains at
+    least one readable record."
+  verification: "The read returns a DataFrame and printSchema shows the schema
+    you passed."
+  version_range: ""
+  source: "https://spark.apache.org/docs/latest/sql-error-conditions.html"
+  confidence: 0.7
+  status: reported
+  scope: public
+  tags: [schema, files]
+
+- id: spark-missing-aggregation
+  engine: spark
+  title: Select expression is not in the GROUP BY
+  signature: "AnalysisException: [MISSING_AGGREGATION] The non-aggregating expression"
+  symptom: "A grouped query fails with MISSING_AGGREGATION. A selected
+    expression is not grouped and is not aggregated."
+  root_cause: "Spark does not pick a value for that column. The column is not
+    in the GROUP BY. It is also not inside an aggregate."
+  fix: "Add the expression to the GROUP BY, or wrap it in an aggregate. Use
+    any_value when any row in the group is acceptable."
+  verification: "The query returns one row per group and MISSING_AGGREGATION is
+    gone."
+  version_range: ""
+  source: "https://spark.apache.org/docs/latest/sql-error-conditions.html"
+  confidence: 0.72
+  status: reported
+  scope: public
+  tags: [sql, aggregation]
+
+- id: spark-ambiguous-column-or-field
+  engine: spark
+  title: Column or field name is ambiguous
+  signature: "AnalysisException: [AMBIGUOUS_COLUMN_OR_FIELD] Column or field"
+  symptom: "Analysis fails with AMBIGUOUS_COLUMN_OR_FIELD. One name matches more
+    than one column or struct field."
+  root_cause: "A join or a nested struct exposes the same name more than once.
+    The reference does not say which one."
+  fix: "Qualify the column with the table alias. Qualify a struct field with
+    its parent. Alias each input before the join."
+  verification: "The query resolves one column and returns rows."
+  version_range: ""
+  source: "https://spark.apache.org/docs/latest/sql-error-conditions.html"
+  confidence: 0.7
+  status: reported
+  scope: public
+  tags: [sql, schema]
+
+- id: spark-parquet-column-type-mismatch
+  engine: spark
+  title: Parquet column type does not match the read
+  signature: "org.apache.spark.SparkException: [FAILED_READ_FILE.PARQUET_COLUMN_DATA_TYPE_MISMATCH] Encountered error while reading file"
+  symptom: "A Parquet read fails with PARQUET_COLUMN_DATA_TYPE_MISMATCH. The
+    stored type is not the Spark type the read expects."
+  root_cause: "The column was written as one Parquet type. The reader asks for
+    another type. Merging schemas does not convert that conflict."
+  fix: "Read the column as the type stored in the file. Cast it later only when
+    the cast is valid. Or rewrite the file to match the table type."
+  verification: "The read completes and the column has the type you expect."
+  version_range: ""
+  source: "https://spark.apache.org/docs/latest/sql-error-conditions.html"
+  confidence: 0.68
+  status: reported
+  scope: public
+  tags: [parquet, schema]
+
+- id: spark-scalar-subquery-too-many-rows
+  engine: spark
+  title: Scalar subquery returns more than one row
+  signature: "org.apache.spark.SparkException: [SCALAR_SUBQUERY_TOO_MANY_ROWS] More than one row returned by a subquery used as an expression."
+  symptom: "A query fails with SCALAR_SUBQUERY_TOO_MANY_ROWS. A subquery used as
+    a single value returned more than one row."
+  root_cause: "A scalar subquery must return one row. The inner query is not
+    limited to one row."
+  fix: "Limit the inner query to one row with a filter or an aggregate. Use
+    IN or a join when many rows are the intended result."
+  verification: "The query returns and the subquery produces one row."
+  version_range: ""
+  source: "https://spark.apache.org/docs/latest/sql-error-conditions.html"
+  confidence: 0.72
+  status: reported
+  scope: public
+  tags: [sql, subquery]
+
+- id: spark-streaming-append-without-watermark
+  engine: spark
+  title: Append aggregation has no watermark
+  signature: "AnalysisException: [STREAMING_OUTPUT_MODE.UNSUPPORTED_OPERATION] Invalid streaming output mode: append."
+  symptom: "A streaming query in append mode fails. The output mode is not
+    supported for an aggregation that has no watermark."
+  root_cause: "Append mode can emit a group only after it is final. Without a
+    watermark, a streaming aggregation never becomes final."
+  fix: "Call withWatermark on the event time column before the aggregation.
+    Use update or complete mode if you do not want a watermark. The chosen
+    mode must be valid for the query."
+  verification: "The streaming query starts and stays active."
+  version_range: ""
+  source: "https://spark.apache.org/docs/latest/sql-error-conditions.html"
+  confidence: 0.68
+  status: reported
+  scope: public
+  tags: [streaming, watermark]

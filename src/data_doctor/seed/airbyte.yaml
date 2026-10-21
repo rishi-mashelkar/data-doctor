@@ -391,3 +391,243 @@
   status: reported
   scope: public
   tags: [postgres, jdbc, config]
+
+- id: airbyte-mysql-cdc-binlog-purged
+  engine: airbyte
+  title: MySQL CDC reloads because the binlog offset is gone
+  signature: "Saved offset no longer present on the server, Airbyte is going to trigger a sync from scratch"
+  symptom: "A MySQL CDC sync that should be incremental reloads the table. The log
+    says the saved offset is no longer present on the server."
+  root_cause: "MySQL deleted the binary logs the offset points at. A busy server
+    can expire them before the next sync. On Amazon RDS the retention hours
+    often default to 0."
+  fix: "Sync more often, and on MySQL raise binlog_expire_logs_seconds so logs
+    last seven days. That is the Airbyte recommendation. On Amazon RDS, set
+    binlog retention hours to at least 24."
+  verification: "The next sync after the reload stays incremental and does not
+    repeat the saved offset message."
+  version_range: ""
+  source: "https://docs.airbyte.com/integrations/sources/mysql/mysql-troubleshooting"
+  confidence: 0.72
+  status: reported
+  scope: public
+  tags: [cdc, mysql, binlog]
+
+- id: airbyte-mysql-binlog-read-eof
+  engine: airbyte
+  title: MySQL closes the binlog connection during a read
+  signature: "java.io.EOFException: Failed to read next byte from position"
+  symptom: "A MySQL CDC sync dies while it reads the binary log. The log shows
+    java.io.EOFException."
+  root_cause: "MySQL closed the connection. Airbyte did not read within
+    net_write_timeout seconds. The default is 60. A large backlog or a slow
+    destination triggers it."
+  fix: "Set net_write_timeout to 3600 on the MySQL server. SET GLOBAL applies
+    only to new connections. Persist the value so a restart keeps it."
+  verification: "The CDC sync finishes and the log has no EOFException for the
+    binary log."
+  version_range: ""
+  source: "https://docs.airbyte.com/integrations/sources/mysql/mysql-troubleshooting"
+  confidence: 0.7
+  status: reported
+  scope: public
+  tags: [cdc, mysql, binlog]
+
+- id: airbyte-mysql-query-timeout
+  engine: airbyte
+  title: MySQL aborts a query that runs too long
+  signature: "MySQL Query Timeout: The sync was aborted because the query took too long to return results, will retry."
+  symptom: "The sync stops and says MySQL Query Timeout. Airbyte retries, but
+    the same abort can fail the job."
+  root_cause: "The server max_execution_time is shorter than the time Airbyte
+    spends on one query."
+  fix: "Raise max_execution_time above the checkpoint target interval. The
+    interval is in seconds. max_execution_time is in milliseconds. For a 300
+    second interval, set at least 300000."
+  verification: "The sync completes and the log does not repeat MySQL Query
+    Timeout."
+  version_range: ""
+  source: "https://docs.airbyte.com/integrations/sources/mysql/mysql-troubleshooting"
+  confidence: 0.68
+  status: reported
+  scope: public
+  tags: [mysql, timeout, sync]
+
+- id: airbyte-mongodb-invalid-resume-token
+  engine: airbyte
+  title: MongoDB change stream resume token is stale
+  signature: "invalid resume token"
+  symptom: "A MongoDB incremental sync fails with an invalid resume token.
+    Airbyte cannot continue from the saved oplog point."
+  root_cause: "The oplog no longer holds the resume point. The sync waited
+    longer than the oplog retention."
+  fix: "Increase the oplog size so it keeps at least 24 hours of changes. A
+    week is safer, so sync more often and then resync the collection."
+  verification: "The next incremental sync continues from the new resume point
+    and does not report an invalid resume token."
+  version_range: ""
+  source: "https://docs.airbyte.com/integrations/sources/mongodb-v2/mongodb-v2-troubleshooting"
+  confidence: 0.64
+  status: reported
+  scope: public
+  tags: [mongodb, cdc, oplog]
+
+- id: airbyte-mongodb-bson-too-large
+  engine: airbyte
+  title: MongoDB change event exceeds the BSON size limit
+  signature: "BSONObjectTooLarge"
+  symptom: "A MongoDB CDC sync fails with BSONObjectTooLarge. Large documents
+    make the change event too big."
+  root_cause: "MongoDB limits a BSON document to 16 MB. A change stream event
+    that includes the full document can pass that limit."
+  fix: "Set the stream to full refresh, which does not use change streams. Or
+    switch update capture from Post Image mode to Lookup mode. Or shrink the
+    documents."
+  verification: "The stream syncs and the log has no BSONObjectTooLarge
+    failure."
+  version_range: ""
+  source: "https://docs.airbyte.com/integrations/sources/mongodb-v2/mongodb-v2-troubleshooting"
+  confidence: 0.67
+  status: reported
+  scope: public
+  tags: [mongodb, cdc, bson]
+
+- id: airbyte-mssql-azure-mi-ssh-login
+  engine: airbyte
+  title: Azure SQL Managed Instance login fails through an SSH tunnel
+  signature: "Error code: 40532; Cannot open server \"localhost\" requested by the login. The login failed."
+  symptom: "The MSSQL source check fails through an SSH tunnel to Azure SQL
+    Managed Instance. The server reports error 40532 and the login names
+    localhost."
+  root_cause: "Managed Instance routes the login by the real hostname. The
+    tunnel connects as localhost, so Azure rejects it. A username with an
+    instance suffix does not fix Managed Instance."
+  fix: "Turn on the public endpoint and connect with no tunnel. Use port 3342.
+    Use a plain SQL username. Allow that port only from the Airbyte IP
+    addresses."
+  verification: "The source check succeeds on port 3342 with no SSH tunnel."
+  version_range: ""
+  source: "https://docs.airbyte.com/integrations/sources/mssql/mssql-troubleshooting"
+  confidence: 0.71
+  status: reported
+  scope: public
+  tags: [mssql, azure, ssh]
+
+- id: airbyte-bigquery-euc-header
+  engine: airbyte
+  title: BigQuery upload fails on an invalid euc header
+  signature: "BigQueryException: 400 Bad Request"
+  symptom: "A BigQuery sync fails with BigQueryException 400 Bad Request. The
+    message is Request had invalid euc header."
+  root_cause: "The failure comes from the BigQuery resumable upload API. It is
+    usually transient. A proxy can also change headers on the way to Google."
+  fix: "Retry the sync. If it fails every time, check the proxy and the service
+    account key. Lower the BigQuery client chunk size from 15 MiB toward 5
+    MiB."
+  verification: "The sync loads the batch and the log has no invalid euc header
+    message."
+  version_range: ""
+  source: "https://docs.airbyte.com/integrations/destinations/bigquery"
+  confidence: 0.63
+  status: reported
+  scope: public
+  tags: [bigquery, upload, destination]
+
+- id: airbyte-bigquery-script-quota
+  engine: airbyte
+  title: BigQuery project hits the concurrent script query quota
+  signature: "BigQueryException: Quota exceeded: Your project_and_region exceeded quota for concurrent script queries per project."
+  symptom: "The BigQuery destination sync fails with BigQueryException. The
+    project exceeded the quota for concurrent script queries."
+  root_cause: "That quota is shared by every job in the project. Other queries
+    and pipelines consume it too."
+  fix: "Set Job Execution Project ID to another project so Airbyte jobs use
+    that quota. Or run fewer streams at the same time."
+  verification: "The sync completes and the log does not report the concurrent
+    script query quota."
+  version_range: ""
+  source: "https://docs.airbyte.com/integrations/destinations/bigquery"
+  confidence: 0.73
+  status: reported
+  scope: public
+  tags: [bigquery, quota, destination]
+
+- id: airbyte-bigquery-load-job-timeout
+  engine: airbyte
+  title: BigQuery load job exceeds the wait limit
+  signature: "Fail to complete a load job in big query"
+  symptom: "The sync fails with Fail to complete a load job in big query. The
+    batch never finishes loading."
+  root_cause: "Airbyte waits 30 minutes for a BigQuery load job. A large batch
+    or a busy queue can pass that limit. Two syncs that load the same table
+    can also hit it."
+  fix: "Use incremental sync or fewer streams so each load is smaller. Do not
+    run two syncs into the same table."
+  verification: "The load job finishes and the sync does not report that
+    failure."
+  version_range: ""
+  source: "https://docs.airbyte.com/integrations/destinations/bigquery"
+  confidence: 0.66
+  status: reported
+  scope: public
+  tags: [bigquery, load, destination]
+
+- id: airbyte-snowflake-schema-permission
+  engine: airbyte
+  title: Snowflake role cannot write the target schema
+  signature: "Current role does not have permissions on the target schema"
+  symptom: "The Snowflake destination fails the sync or the check. The current
+    role does not have permissions on the target schema."
+  root_cause: "The connection namespace is a schema the role cannot use.
+    Mirror source structure often selects PUBLIC when the role has no rights
+    there."
+  fix: "Set the destination namespace to Destination Default. Or grant the role
+    ownership on the schema you want."
+  verification: "The check passes and the sync writes tables in the chosen
+    schema."
+  version_range: ""
+  source: "https://docs.airbyte.com/integrations/destinations/snowflake"
+  confidence: 0.69
+  status: reported
+  scope: public
+  tags: [snowflake, permissions, destination]
+
+- id: airbyte-clickhouse-async-insert-check
+  engine: airbyte
+  title: ClickHouse check writes no rows when async insert is on
+  signature: "Failed to insert expected rows into check table. Actual written: 0"
+  symptom: "The ClickHouse destination check fails. It inserted no rows into
+    the check table."
+  root_cause: "async_insert is on for the Airbyte user. The check reads before
+    ClickHouse flushes the async buffer, so the written count stays 0."
+  fix: "Set async_insert to 0 for the Airbyte user. Run ALTER USER
+    airbyte_user SETTINGS async_insert = 0."
+  verification: "The destination check passes and the check table row count is
+    not 0."
+  version_range: ""
+  source: "https://docs.airbyte.com/integrations/destinations/clickhouse"
+  confidence: 0.65
+  status: reported
+  scope: public
+  tags: [clickhouse, insert, check]
+
+- id: airbyte-db-host-unreachable
+  engine: airbyte
+  title: Airbyte cannot open a TCP connection to the database
+  signature: "Airbyte could not reach the database at the configured host and port"
+  symptom: "The Postgres source check fails. Airbyte could not reach the
+    database at the configured host and port."
+  root_cause: "Airbyte could not open a TCP connection. The host or port is
+    wrong, Postgres is not listening, or a firewall blocks the Airbyte
+    addresses."
+  fix: "Check the host and port. Set listen_addresses and a matching
+    pg_hba.conf entry so remote clients can connect. Allow the Airbyte IP
+    addresses."
+  verification: "The source check succeeds and connects to the host and port
+    you set."
+  version_range: ""
+  source: "https://docs.airbyte.com/integrations/sources/postgres"
+  confidence: 0.74
+  status: reported
+  scope: public
+  tags: [postgres, network, check]
