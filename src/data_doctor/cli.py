@@ -2,6 +2,7 @@
 
 Commands:
   diagnose   read an error (file or stdin), match the bank, print the fix
+  triage     scan a log file or directory, find every known failure in it
   search     match free text against the bank
   add        add one entry from a YAML file
   feedback   record whether a suggested fix worked
@@ -225,6 +226,75 @@ def _verify(args: argparse.Namespace) -> int:
     return 1 if failed else 0
 
 
+def _triage(args: argparse.Namespace) -> int:
+    from data_doctor.logs import extract_errors, read_sources
+
+    stdin_text = sys.stdin.read() if (not args.source or args.source == "-") else None
+    sources = read_sources(args.source, stdin_text=stdin_text)
+    if not any(text.strip() for _, text in sources):
+        print("Nothing to triage. Pass a log file, a directory, or pipe a log on stdin.",
+              file=sys.stderr)
+        return 1
+    errors = extract_errors(sources)
+    embedder = _resolve_embedder(args.semantic)
+
+    results = []
+    with _bank(args) as bank:
+        if bank.count() == 0:
+            print("The bank is empty. Run `data-doctor seed` to load the starter entries.",
+                  file=sys.stderr)
+            return 1
+        for le in errors:
+            engine = args.engine or le.fingerprint.engine_hint
+            candidates = bank.all(engine=engine if engine != "other" else None) or bank.all()
+            matches = rank(le.fingerprint, candidates, user_version=args.version or "",
+                           limit=args.limit, embedder=embedder)
+            results.append((le, engine, matches))
+
+    matched = [r for r in results if r[2]]
+    unmatched = [r for r in results if not r[2]]
+
+    if args.json:
+        print(json.dumps({
+            "blocks_found": len(errors),
+            "matched": len(matched),
+            "unmatched": len(unmatched),
+            "failures": [{
+                "engine": engine, "count": le.count, "origins": le.origins,
+                "exception": le.fingerprint.exception,
+                "matches": [{"id": m.entry.id, "score": m.score, "fix": m.entry.fix,
+                             "status": m.entry.status, "confidence": m.entry.confidence}
+                            for m in matches],
+            } for le, engine, matches in results],
+        }, indent=2))
+        return 0
+
+    if not errors:
+        print("No errors found in the logs. Nothing stood out as a failure.")
+        return 0
+
+    print(f"Scanned the logs. Found {len(errors)} distinct failure(s): "
+          f"{len(matched)} known, {len(unmatched)} not yet in the bank.\n")
+    for le, engine, matches in matched:
+        where = ", ".join(le.origins)
+        seen = f"seen {le.count}x" if le.count > 1 else "seen once"
+        print(f"● {engine} failure ({seen} in {where}):")
+        snippet, _ = redact(le.block)
+        for ln in snippet.splitlines()[:4]:
+            print(f"    | {ln}")
+        print()
+        print(_render(matches[0]))
+        print()
+    if unmatched:
+        print(f"{len(unmatched)} failure(s) are not in the bank yet:")
+        for le, engine, _ in unmatched:
+            snippet, _ = redact(le.block)
+            head = snippet.splitlines()[0] if snippet.splitlines() else ""
+            print(f"  - {engine}: {head[:100]}")
+        print("Solve one and add it with `data-doctor add` so it is known next time.")
+    return 0
+
+
 def _check(args: argparse.Namespace) -> int:
     from data_doctor.changelog import alerts, detect_versions
 
@@ -284,6 +354,16 @@ def build_parser() -> argparse.ArgumentParser:
                    help="Also match by meaning (needs the [semantic] extra)")
     d.add_argument("--json", action="store_true", help="Emit JSON")
     d.set_defaults(func=_diagnose)
+
+    tr = sub.add_parser("triage", help="Scan a log file or directory and find every known failure")
+    tr.add_argument("source", nargs="?", help="Log file or directory, or - for stdin (default stdin)")
+    tr.add_argument("--engine", help="Force the engine for every failure found")
+    tr.add_argument("--version", help="Your version of the engine, e.g. 1.8.2")
+    tr.add_argument("--limit", type=int, default=1, help="Max suggestions per failure (default 1)")
+    tr.add_argument("--semantic", action="store_true",
+                    help="Also match by meaning (needs the [semantic] extra)")
+    tr.add_argument("--json", action="store_true", help="Emit JSON")
+    tr.set_defaults(func=_triage)
 
     s = sub.add_parser("search", help="Match free text against the bank")
     s.add_argument("text")

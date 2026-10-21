@@ -1,6 +1,6 @@
 [project]
 name = "data-doctor"
-version = "0.4.0"
+version = "0.5.0"
 description = "Diagnose data-pipeline failures against a version-aware knowledge bank, and get the exact fix."
 readme = "README.md"
 requires-python = ">=3.12"

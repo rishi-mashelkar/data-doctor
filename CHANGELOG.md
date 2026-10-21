@@ -5,7 +5,14 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-10-21
+
 ### Added
+- Log triage. `data-doctor triage` scans a log file, a directory of logs, or a
+  piped stream, splits it into distinct failures, and matches each to the bank.
+  A stack trace repeated fifty times collapses to one failure with a count.
+  Failures not yet in the bank are listed so you can add them. This is the first
+  step of reading logs directly. Secrets in a shown snippet are redacted first.
 - 48 seed entries for Airbyte, dbt, PySpark, and Iceberg. Ids are new and
   status stays reported. The bank now holds 152.
 

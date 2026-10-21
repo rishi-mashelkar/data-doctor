@@ -28,6 +28,7 @@ large-model call. The match runs offline.
 - store. The bank, a local DuckDB file of entries. Reads, writes, feedback, stats.
 - matcher. The ranking described above, plus the optional semantic tier.
 - semantic. The optional embeddings tier. Off unless you ask for it.
+- logs. The log reader and splitter behind the triage command.
 - models. The Entry and Match shapes.
 - redact. Secret and email scrubbing, applied before an entry is shared.
 - seed. The bundled starter entries, one YAML file per engine.
@@ -57,6 +58,26 @@ not a core dependency. The tier is off unless you ask for it. When the extra is
 absent, or a model cannot load offline, the tool falls back to the lexical tier
 with no error. So the core install stays small and fully offline, and a model is a
 fallback, not the default.
+
+## Reading logs, and the connectors to come
+
+Triage reads logs and finds the failures in them. The log module splits a raw log
+into error blocks, one per failure. It fingerprints each block and matches it to
+the bank. Identical failures collapse into one, with a count. Today it reads a
+file, a directory, or stdin. It does not reach the network.
+
+This is the start of a connector layer. The network sources come next. They include
+a cloud log service, an orchestrator API, a ticket system, a chat, and a pager.
+They all use the same interface. A source reads context in, data-doctor matches it,
+and a fix comes out.
+
+Three rules hold for every connector:
+
+- Off by default. A connector does nothing until you turn it on and bring a token.
+- Suggest, do not act. A write, such as filing a ticket or posting to a channel,
+  waits for your approval. The default is still suggest.
+- Redact first. Logs and chats hold secrets, so a snippet is scrubbed before it is
+  shown or shared. Provenance stays on the fix.
 
 ## Trust
 

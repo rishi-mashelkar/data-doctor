@@ -38,6 +38,25 @@ You can also pipe an error straight in:
 spark-submit job.py 2>&1 | data-doctor diagnose --engine spark --version 3.5.0
 ```
 
+## Triage a whole log
+
+A real log buries a few failures in noise and repeats the same stack trace many
+times. `data-doctor triage` reads a log file, a directory of logs, or a piped
+stream, splits it into distinct failures, and matches each to the bank. Repeats
+collapse into one failure with a count. Failures the bank does not know are listed
+so you can add them.
+
+```
+data-doctor triage path/to/task.log
+data-doctor triage ./logs/                 # scan a directory of logs
+kubectl logs mypod | data-doctor triage    # pipe a stream straight in
+```
+
+Secrets in a shown snippet are redacted first, because logs hold tokens and
+connection strings. This is the first step of reading logs directly. Reading from
+cloud log services and orchestrators comes later, off by default and with a token
+you bring.
+
 ## Catch breaks before they happen
 
 `data-doctor check` reads the versions your project pins and warns about known
@@ -118,6 +137,7 @@ data-doctor add my-fix.yaml
 | Command | What it does |
 | --- | --- |
 | diagnose | Match an error (file or stdin) and print the fix |
+| triage | Scan a log file or directory and find every known failure in it |
 | verify | Run an entry's reproduction and mark it verified if it passes |
 | check | Warn about known upgrade risks for a project's pinned versions |
 | serve | Run the local web UI |

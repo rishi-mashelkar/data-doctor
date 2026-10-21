@@ -13,8 +13,9 @@ it is time-to-recovery trending to near zero.
 ## Phases
 
 Shipped so far: Phase 1, plus verified fixes (a sandboxed repro runner), proactive
-changelog alerts, a local web UI, and the semantic match tier. Still ahead in
-Phase 2: repro coverage for the heavier engines through the command verifier.
+changelog alerts, a local web UI, and the semantic match tier. Phase 3 has started
+with log triage, reading logs directly in their local form. Still ahead in Phase 2:
+repro coverage for the heavier engines through the command verifier.
 
 ### Phase 1 - diagnose and suggest (v1, now)
 - Fingerprint an error, match the bank, suggest the exact fix with provenance.
@@ -36,8 +37,11 @@ Phase 2: repro coverage for the heavier engines through the command verifier.
 - Change context from JIRA and chat, so a break is tied to the story, ticket, or
   deploy that caused it. This is what makes the version-aware root cause fast.
 - Sit in the incident path. Ingest alerts from a pager and respond in a channel.
-- Read logs directly from the common log sources, to move from reactive to
-  proactive and catch a break before anyone pastes it.
+- Read logs directly. Started with log triage, which reads a file, a directory,
+  or a piped stream and finds every known failure in it. Next are the common log
+  sources, a cloud log service or an orchestrator API, to move from reactive to
+  proactive and catch a break before anyone pastes it. Each stays off by default
+  and needs a token you bring.
 
 ### Phase 4 - with approval, it fixes
 - Apply the fix behind your approval and a dry run. Suggest first stays the
