@@ -26,7 +26,8 @@ large-model call. The match runs offline.
 
 - fingerprint. Normalization and the engine and exception detectors.
 - store. The bank, a local DuckDB file of entries. Reads, writes, feedback, stats.
-- matcher. The ranking described above.
+- matcher. The ranking described above, plus the optional semantic tier.
+- semantic. The optional embeddings tier. Off unless you ask for it.
 - models. The Entry and Match shapes.
 - redact. Secret and email scrubbing, applied before an entry is shared.
 - seed. The bundled starter entries, one YAML file per engine.
@@ -42,10 +43,20 @@ changing shape. v1 keeps it local and simple.
 
 ## Match, honestly
 
-v1 ranks on exact and lexical signals. That is enough for exact and near matches,
-and it runs offline. A semantic tier can slot in behind the same interface for the
-fuzzy cases the local pass misses. It is deliberately not in v1, so the tool stays
-small and has no model dependency to install.
+The matcher ranks on exact and lexical signals first. That is enough for exact and
+near matches, and it runs offline with no model.
+
+A semantic tier runs behind the same interface, for the fuzzy cases the local pass
+misses. It handles the same failure described in different words. It reads meaning
+through an embeddings model. It then blends a bounded boost into the lexical score.
+It is a second signal, never the first, so a match still needs some real evidence
+to surface.
+
+The semantic tier stays optional on purpose. The model is an extra you install,
+not a core dependency. The tier is off unless you ask for it. When the extra is
+absent, or a model cannot load offline, the tool falls back to the lexical tier
+with no error. So the core install stays small and fully offline, and a model is a
+fallback, not the default.
 
 ## Trust
 

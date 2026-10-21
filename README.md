@@ -19,6 +19,7 @@ carry a reproduction that data-doctor runs in a sandbox to mark it verified.
 pip install data-doctor        # not yet published; for now, from source:
 pip install -e .
 pip install -e ".[ui]"         # also install the web UI
+pip install -e ".[semantic]"   # also install the semantic match tier
 ```
 
 ## Quickstart
@@ -61,6 +62,24 @@ network access turned off. A second verifier can run a tool like dbt or
 spark-submit against your project, but only with `--allow-commands`, and only for
 an allowlisted tool. The tool runs nothing on its own.
 
+## Match by meaning
+
+The local match is fast and offline, but it misses a failure described in
+different words than the bank entry. The semantic tier reads meaning, not words, so
+a close match still surfaces. It is a second signal that blends into the local
+score. It never replaces it.
+
+```
+pip install -e ".[semantic]"
+data-doctor diagnose err.txt --semantic
+data-doctor search "jobs keep dying out of memory" --semantic
+```
+
+The model is an optional extra, so the core install stays light. The first run
+downloads a small model once, then runs offline. When the extra is not installed,
+or a model cannot load offline, data-doctor falls back to the local tier with no
+error. A model is a fallback here, not the default.
+
 ## Web UI
 
 ```
@@ -76,7 +95,8 @@ whether a fix worked. The UI runs locally against the same bank as the CLI.
 1. Fingerprint. The error is normalized. Paths, timestamps, and ids are stripped
    so the stable shape is what gets matched.
 2. Match. A fast local pass ranks the bank by exception class, signature shape,
-   shared terms, engine, and version fit. No model, no network.
+   shared terms, engine, and version fit. No model, no network. An optional
+   semantic tier adds a meaning-based signal for the fuzzy cases this pass misses.
 3. Suggest. You get the root cause, the exact fix, a verify step, the source, the
    version range, and a confidence.
 4. Learn. Your feedback moves each entry's confidence and marks what is verified.

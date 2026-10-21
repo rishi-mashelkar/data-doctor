@@ -1,9 +1,11 @@
 """Rank bank entries against a query fingerprint.
 
 Two tiers. First an instant local match on the exception class, the signature
-shape, and token overlap. That needs no model and runs offline. A semantic tier
-can slot in later behind the same interface, for the fuzzy cases the local tier
-misses. v1 ships the local tier only, and it is enough for exact and near matches.
+shape, and token overlap. That needs no model and runs offline, and it is enough
+for exact and near matches. Second, an optional semantic tier for the fuzzy cases
+the local tier misses, when the same failure is described in different words. The
+semantic score only blends into the local score through the same interface. It is
+a second signal, never the first, and it is off unless an embedder is passed.
 """
 
 from __future__ import annotations
@@ -19,6 +21,15 @@ __all__ = ["rank", "version_applies"]
 _VER = re.compile(r"(\d+)\.(\d+)(?:\.(\d+))?")
 _OPS = {">=": operator.ge, ">": operator.gt, "<=": operator.le,
         "<": operator.lt, "==": operator.eq}
+
+# How the semantic tier blends in. Cosine from the embedder runs low and narrow
+# for short error text, so these map a useful band onto a real contribution. A
+# cosine at or below the floor adds nothing. One at the top adds W_SEM, which is
+# on a par with the exception-class signal, so a confident semantic match can
+# surface an entry the word overlap missed.
+_SEM_FLOOR = 0.60
+_SEM_TOP = 0.78
+_W_SEM = 0.45
 
 
 def _jaccard(a: set[str], b: set[str]) -> float:
@@ -49,7 +60,22 @@ def version_applies(user_version: str, version_range: str) -> bool | None:
     return ok if seen else None
 
 
-def _score(query: Fingerprint, entry: Entry, user_version: str) -> Match:
+def _entry_text(entry: Entry) -> str:
+    """The text the semantic tier reads for an entry. Title and symptom carry the
+    plain-language meaning the model matches against, not just the raw signature."""
+    parts = [entry.title, entry.symptom, entry.signature, entry.root_cause]
+    return "  ".join(p for p in parts if p)[:1000]
+
+
+def _semantic_boost(cos: float) -> float:
+    if cos <= _SEM_FLOOR:
+        return 0.0
+    frac = min((cos - _SEM_FLOOR) / (_SEM_TOP - _SEM_FLOOR), 1.0)
+    return _W_SEM * frac
+
+
+def _score(query: Fingerprint, entry: Entry, user_version: str,
+           sem_cos: float | None = None) -> Match:
     ef = fingerprint(entry.signature)
     why: list[str] = []
     score = 0.0
@@ -83,13 +109,32 @@ def _score(query: Fingerprint, entry: Entry, user_version: str) -> Match:
         why.append(f"version {user_version} is outside {entry.version_range}")
 
     score += 0.10 * entry.confidence
+
+    if sem_cos is not None:
+        boost = _semantic_boost(sem_cos)
+        if boost > 0:
+            score += boost
+            why.append(f"semantically close ({sem_cos:.2f})")
+
     return Match(entry=entry, score=round(score, 4), why=why)
 
 
 def rank(query: Fingerprint, entries: list[Entry], *, user_version: str = "",
-         limit: int = 5, min_score: float = 0.15) -> list[Match]:
-    """Score every entry and return the best ones, most relevant first."""
-    scored = [_score(query, e, user_version) for e in entries]
+         limit: int = 5, min_score: float = 0.15, embedder=None) -> list[Match]:
+    """Score every entry and return the best ones, most relevant first.
+
+    Pass an embedder to turn on the semantic tier. It reads meaning, not words, so
+    a close match surfaces even when few words are shared. A failure in the
+    embedder never breaks a diagnose. It falls back to the lexical score."""
+    sims: list[float] | None = None
+    if embedder is not None and entries:
+        try:
+            sims = embedder.similarity(query.raw or query.signature,
+                                       [_entry_text(e) for e in entries])
+        except Exception:  # noqa: BLE001 — a model hiccup must not break diagnose
+            sims = None
+    scored = [_score(query, e, user_version, sims[i] if sims is not None else None)
+              for i, e in enumerate(entries)]
     scored = [m for m in scored if m.score >= min_score]
     scored.sort(key=lambda m: m.score, reverse=True)
     return scored[:limit]

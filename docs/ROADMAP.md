@@ -13,8 +13,8 @@ it is time-to-recovery trending to near zero.
 ## Phases
 
 Shipped so far: Phase 1, plus verified fixes (a sandboxed repro runner), proactive
-changelog alerts, and a local web UI. Still ahead in Phase 2: the semantic match
-tier, and repro coverage for the heavier engines through the command verifier.
+changelog alerts, a local web UI, and the semantic match tier. Still ahead in
+Phase 2: repro coverage for the heavier engines through the command verifier.
 
 ### Phase 1 - diagnose and suggest (v1, now)
 - Fingerprint an error, match the bank, suggest the exact fix with provenance.
@@ -28,7 +28,9 @@ tier, and repro coverage for the heavier engines through the command verifier.
   small Iceberg table, or a minimal local Spark session.
 - Proactive changelog alerts. Read the versions in your lockfiles and dbt
   packages and warn before an upgrade is likely to break you.
-- A semantic match tier for the fuzzy cases the local pass misses.
+- A semantic match tier for the fuzzy cases the local pass misses. It reads
+  meaning, not words, and blends into the local score. It stays a second signal,
+  behind an optional model, so the core install stays light and offline.
 
 ### Phase 3 - in the flow
 - Change context from JIRA and chat, so a break is tied to the story, ticket, or

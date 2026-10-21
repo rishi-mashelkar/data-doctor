@@ -1,6 +1,6 @@
 [project]
 name = "data-doctor"
-version = "0.3.0"
+version = "0.4.0"
 description = "Diagnose data-pipeline failures against a version-aware knowledge bank, and get the exact fix."
 readme = "README.md"
 requires-python = ">=3.12"
@@ -22,7 +22,9 @@ dependencies = [
 
 [project.optional-dependencies]
 ui = ["fastapi>=0.110", "uvicorn>=0.29"]
-dev = ["pytest>=8.0", "ruff>=0.6", "fastapi>=0.110", "uvicorn>=0.29", "httpx>=0.27"]
+semantic = ["fastembed>=0.4"]
+dev = ["pytest>=8.0", "ruff>=0.6", "fastapi>=0.110", "uvicorn>=0.29", "httpx>=0.27",
+       "fastembed>=0.4"]
 
 [project.scripts]
 data-doctor = "data_doctor.cli:main"

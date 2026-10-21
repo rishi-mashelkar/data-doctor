@@ -69,11 +69,15 @@
       <select id="engine">
         <option value="">auto-detect engine</option>
         <option value="airflow">airflow</option>
+        <option value="airbyte">airbyte</option>
         <option value="dbt">dbt</option>
         <option value="spark">spark</option>
         <option value="iceberg">iceberg</option>
+        <option value="duckdb">duckdb</option>
       </select>
       <input type="text" id="version" placeholder="version (optional)" size="14" />
+      <label class="muted" id="semwrap" style="display:none; font-size:13px; gap:5px; align-items:center;">
+        <input type="checkbox" id="semantic" /> match by meaning</label>
       <button id="go">Diagnose</button>
     </div>
     <div id="results" style="margin-top:16px"></div>
@@ -86,9 +90,11 @@
       <select id="bankengine">
         <option value="">all engines</option>
         <option value="airflow">airflow</option>
+        <option value="airbyte">airbyte</option>
         <option value="dbt">dbt</option>
         <option value="spark">spark</option>
         <option value="iceberg">iceberg</option>
+        <option value="duckdb">duckdb</option>
       </select>
     </div>
     <div id="bank" style="margin-top:12px"></div>
@@ -107,7 +113,8 @@ async function diagnose() {
   try {
     const r = await fetch("/api/diagnose", { method: "POST",
       headers: {"content-type": "application/json"},
-      body: JSON.stringify({ text, engine: $("engine").value, version: $("version").value }) });
+      body: JSON.stringify({ text, engine: $("engine").value, version: $("version").value,
+        semantic: $("semantic").checked }) });
     const data = await r.json();
     renderResults(data);
   } catch (e) { $("results").innerHTML = '<p class="muted">Request failed.</p>'; }
@@ -115,7 +122,8 @@ async function diagnose() {
 }
 
 function renderResults(data) {
-  const head = `<p class="muted">engine: ${esc(data.engine)} · exception: ${esc(data.exception || "n/a")}</p>`;
+  const head = `<p class="muted">engine: ${esc(data.engine)} · exception: ${esc(data.exception || "n/a")}`
+    + `${data.semantic ? " · semantic on" : ""}</p>`;
   if (!data.matches || !data.matches.length) {
     $("results").innerHTML = head + '<p class="empty">No known match. If you solve it, add it to the bank.</p>';
     return;
@@ -166,6 +174,7 @@ async function loadStats() {
   const byEngine = Object.entries(d.by_engine || {}).map(([k, v]) => `${k} ${v}`).join(", ");
   $("stats").textContent = `Bank: ${d.total} entries (${d.verified} verified) · ${byEngine}`
     + ` · feedback ${d.feedback_count}, fix-worked rate ${d.fix_worked_rate ?? "n/a"}`;
+  if (d.semantic_available) $("semwrap").style.display = "inline-flex";
 }
 
 $("go").onclick = diagnose;

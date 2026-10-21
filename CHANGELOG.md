@@ -5,9 +5,18 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-10-21
+
 ### Added
-- 79 seed entries for Airbyte, dbt, PySpark, and Iceberg. Ids are new and
-  status stays reported. The bank now holds 104.
+- A semantic match tier. It reads the meaning of an error, not just its words, so
+  a close match surfaces even when the error is described in different words than
+  the bank entry. It is a second signal that blends into the lexical score, and it
+  is off unless you ask for it with `--semantic` (or a checkbox in the web UI). The
+  embeddings model is an optional extra (`pip install data-doctor[semantic]`). When
+  the extra is absent, or a model cannot load offline, data-doctor falls back to the
+  lexical tier with no error. The core install stays light and fully offline.
+- Airbyte as an engine, plus more dbt, Spark, and Iceberg failures. New ids stay
+  reported. The bank now holds 104 across six engines.
 
 ## [0.3.0] - 2026-10-21
 

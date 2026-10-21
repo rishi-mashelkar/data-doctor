@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -30,6 +31,25 @@ from data_doctor.store import Bank
 
 def _bank(args: argparse.Namespace) -> Bank:
     return Bank(home=Path(args.home) if args.home else None)
+
+
+def _resolve_embedder(want: bool):
+    """Load the semantic embedder when asked. Return None and tell the user if the
+    extra is not installed or a model cannot load. The lexical tier still runs."""
+    if not (want or os.environ.get("DATA_DOCTOR_SEMANTIC")):
+        return None
+    from data_doctor.semantic import available, load_embedder
+
+    if not available():
+        print("Semantic match needs the extra. Install it with:\n"
+              "  pip install 'data-doctor[semantic]'\nRunning the lexical tier only.",
+              file=sys.stderr)
+        return None
+    embedder = load_embedder()
+    if embedder is None:
+        print("Could not load the embeddings model (offline, no cached model?). "
+              "Running the lexical tier only.", file=sys.stderr)
+    return embedder
 
 
 def _read_input(positional: str | None) -> str:
@@ -62,6 +82,7 @@ def _diagnose(args: argparse.Namespace) -> int:
         return 1
     fp = fingerprint(text)
     engine = args.engine or fp.engine_hint
+    embedder = _resolve_embedder(args.semantic)
     with _bank(args) as bank:
         if bank.count() == 0:
             print("The bank is empty. Run `data-doctor seed` to load the starter entries.",
@@ -70,7 +91,8 @@ def _diagnose(args: argparse.Namespace) -> int:
         candidates = bank.all(engine=engine if engine != "other" else None)
         if not candidates:
             candidates = bank.all()
-        matches = rank(fp, candidates, user_version=args.version or "", limit=args.limit)
+        matches = rank(fp, candidates, user_version=args.version or "",
+                       limit=args.limit, embedder=embedder)
 
     if args.json:
         print(json.dumps({
@@ -97,8 +119,10 @@ def _diagnose(args: argparse.Namespace) -> int:
 
 def _search(args: argparse.Namespace) -> int:
     fp = fingerprint(args.text)
+    embedder = _resolve_embedder(args.semantic)
     with _bank(args) as bank:
-        matches = rank(fp, bank.all(), user_version="", limit=args.limit, min_score=0.05)
+        matches = rank(fp, bank.all(), user_version="", limit=args.limit,
+                       min_score=0.05, embedder=embedder)
     if not matches:
         print("No matches.")
         return 2
@@ -256,12 +280,16 @@ def build_parser() -> argparse.ArgumentParser:
     d.add_argument("--engine", help="Override the detected engine")
     d.add_argument("--version", help="Your version of the engine, e.g. 1.8.2")
     d.add_argument("--limit", type=int, default=3, help="Max suggestions (default 3)")
+    d.add_argument("--semantic", action="store_true",
+                   help="Also match by meaning (needs the [semantic] extra)")
     d.add_argument("--json", action="store_true", help="Emit JSON")
     d.set_defaults(func=_diagnose)
 
     s = sub.add_parser("search", help="Match free text against the bank")
     s.add_argument("text")
     s.add_argument("--limit", type=int, default=5)
+    s.add_argument("--semantic", action="store_true",
+                   help="Also match by meaning (needs the [semantic] extra)")
     s.set_defaults(func=_search)
 
     a = sub.add_parser("add", help="Add one or more entries from a YAML file")

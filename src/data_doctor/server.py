@@ -35,9 +35,24 @@ def build_app(home: Path | None = None):
 
     app = FastAPI(title="data-doctor", docs_url=None, redoc_url=None)
     app.state.home = home
+    app.state.embedder = "unset"
 
     def bank() -> Bank:
         return Bank(home=app.state.home)
+
+    def embedder():
+        """Load the semantic embedder once, lazily, and reuse it. Return None when
+        the extra is absent or a model cannot load, so diagnose stays on lexical."""
+        if app.state.embedder == "unset":
+            from data_doctor.semantic import available, load_embedder
+
+            app.state.embedder = load_embedder() if available() else None
+        return app.state.embedder
+
+    def semantic_available() -> bool:
+        from data_doctor.semantic import available
+
+        return available()
 
     @app.get("/", response_class=HTMLResponse)
     def index() -> str:
@@ -51,11 +66,14 @@ def build_app(home: Path | None = None):
         fp = fingerprint(text)
         engine = (payload.get("engine") or fp.engine_hint) or "other"
         limit = int(payload.get("limit") or 3)
+        emb = embedder() if payload.get("semantic") else None
         with bank() as b:
             candidates = b.all(engine=engine if engine != "other" else None) or b.all()
-            matches = rank(fp, candidates, user_version=payload.get("version") or "", limit=limit)
+            matches = rank(fp, candidates, user_version=payload.get("version") or "",
+                           limit=limit, embedder=emb)
         return JSONResponse({
             "engine": engine, "exception": fp.exception,
+            "semantic": emb is not None,
             "matches": [_match_dict(m) for m in matches],
         })
 
@@ -76,7 +94,9 @@ def build_app(home: Path | None = None):
     @app.get("/api/stats")
     def stats() -> JSONResponse:
         with bank() as b:
-            return JSONResponse(b.stats())
+            data = b.stats()
+        data["semantic_available"] = semantic_available()
+        return JSONResponse(data)
 
     @app.post("/api/feedback")
     def feedback(payload: dict) -> JSONResponse:
