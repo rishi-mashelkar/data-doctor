@@ -1,0 +1,134 @@
+{
+  "format-version": 2,
+  "table-uuid": "eb2a6a74-e416-4741-8148-45f1f0305041",
+  "location": "s3://acme-lake/warehouse/analytics.db/orders",
+  "last-sequence-number": 1,
+  "last-updated-ms": 1772265600000,
+  "last-column-id": 7,
+  "current-schema-id": 0,
+  "schemas": [
+    {
+      "type": "struct",
+      "schema-id": 0,
+      "identifier-field-ids": [],
+      "fields": [
+        {
+          "id": 1,
+          "name": "order_id",
+          "required": false,
+          "type": "long"
+        },
+        {
+          "id": 2,
+          "name": "cust_id",
+          "required": false,
+          "type": "long"
+        },
+        {
+          "id": 3,
+          "name": "order_status",
+          "required": false,
+          "type": "string"
+        },
+        {
+          "id": 4,
+          "name": "amount",
+          "required": false,
+          "type": "decimal(12, 2)"
+        },
+        {
+          "id": 5,
+          "name": "channel",
+          "required": false,
+          "type": "string"
+        },
+        {
+          "id": 6,
+          "name": "created_ts",
+          "required": false,
+          "type": "timestamptz"
+        },
+        {
+          "id": 7,
+          "name": "region",
+          "required": false,
+          "type": "string"
+        }
+      ]
+    }
+  ],
+  "default-spec-id": 0,
+  "partition-specs": [
+    {
+      "spec-id": 0,
+      "fields": [
+        {
+          "name": "region",
+          "transform": "identity",
+          "source-id": 7,
+          "field-id": 1000
+        }
+      ]
+    }
+  ],
+  "last-partition-id": 1000,
+  "default-sort-order-id": 0,
+  "sort-orders": [
+    {
+      "order-id": 0,
+      "fields": []
+    }
+  ],
+  "properties": {
+    "write.format.default": "parquet",
+    "write.delete.mode": "merge-on-read",
+    "write.update.mode": "merge-on-read",
+    "write.merge.mode": "merge-on-read",
+    "owner": "data-platform",
+    "migrated": "true",
+    "schema.name-mapping.default": "[{\"field-id\": 1, \"names\": [\"order_id\"]}, {\"field-id\": 2, \"names\": [\"cust_id\"]}, {\"field-id\": 3, \"names\": [\"order_status\"]}, {\"field-id\": 4, \"names\": [\"amount\"]}, {\"field-id\": 5, \"names\": [\"channel\"]}, {\"field-id\": 6, \"names\": [\"created_ts\"]}, {\"field-id\": 7, \"names\": [\"region\"]}]"
+  },
+  "current-snapshot-id": 4587184720257359557,
+  "refs": {
+    "main": {
+      "snapshot-id": 4587184720257359557,
+      "type": "branch"
+    }
+  },
+  "snapshots": [
+    {
+      "snapshot-id": 4587184720257359557,
+      "sequence-number": 1,
+      "timestamp-ms": 1772265600000,
+      "manifest-list": "s3://acme-lake/warehouse/analytics.db/orders/metadata/snap-4587184720257359557-1-0c59975e-c5f5-4098-ad12-091c9bd50e56.avro",
+      "summary": {
+        "operation": "append",
+        "spark.app.id": "app-20260228075503-0001",
+        "added-data-files": "4",
+        "added-records": "300",
+        "engine-name": "spark",
+        "engine-version": "3.5.6",
+        "iceberg-version": "Apache Iceberg 1.9.2 (commit 071d5606bc6199a0be9b3f274ec7fbf111d88821)",
+        "app-id": "app-20260228075503-0001",
+        "changed-partition-count": "4",
+        "added-files-size": "13497",
+        "total-records": "300",
+        "total-files-size": "13497",
+        "total-data-files": "4",
+        "total-delete-files": "0",
+        "total-position-deletes": "0",
+        "total-equality-deletes": "0"
+      },
+      "schema-id": 0
+    }
+  ],
+  "statistics": [],
+  "partition-statistics": [],
+  "snapshot-log": [
+    {
+      "timestamp-ms": 1772265600000,
+      "snapshot-id": 4587184720257359557
+    }
+  ],
+  "metadata-log": []
+}

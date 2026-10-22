@@ -5,6 +5,14 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+- A featured example that recovers a lost Iceberg snapshot. A scheduled maintenance
+  job expires the snapshot behind a past read, so time travel fails. The bundled
+  example reproduces the failure and diagnoses it. Then it verifies the recovery
+  against a reference answer of 1375 rows. It runs with no Spark, no JVM, and no
+  cloud catalog. A new iceberg-demo extra adds the two readers it needs, pyarrow and
+  fastavro. See examples/iceberg_asof/.
+
 ## [0.6.0] - 2026-10-21
 
 ### Added

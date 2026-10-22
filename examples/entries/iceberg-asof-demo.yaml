@@ -1,0 +1,43 @@
+- id: iceberg-asof-expired-snapshot
+  engine: iceberg
+  title: Time travel fails after expire_snapshots removed the target snapshot
+  signature: "Cannot find a snapshot older than time travel as of expire_snapshots iceberg_scan returns 0 rows manifest list missing"
+  symptom: "A read as of a past time fails or returns nothing. Spark reports that it
+    cannot find a snapshot older than that time. DuckDB iceberg_scan returns 0 rows
+    or an internal error. The point in time read fine before, then routine
+    maintenance ran."
+  root_cause: "Scheduled maintenance expired the snapshot you are reading.
+    expire_snapshots with retain_last 1 deleted that snapshot and its manifest list,
+    so time travel can no longer reach it. A trap sits next to it. The newest
+    metadata file written before your target time can be a crashed commit that never
+    became current, because a later commit was built on an earlier metadata file."
+  fix: "Rebuild the state by hand from what survived. First find the committed
+    metadata chain. Keep the tip that later commits were built on, and ignore any
+    off-chain crashed file. Take the last chain metadata at or before your target
+    time, and read its current snapshot and snapshot log. The target manifest list is
+    gone, so read the surviving current snapshot's manifest list instead. Keep every
+    live entry whose snapshot id is the target snapshot or one of its ancestors,
+    because rewrite_manifests merged entries from before and after your target time
+    into one manifest. Read files by field id, apply the table's name mapping for
+    migrated files that have no field ids, and fill identity partition values before
+    matching deletes. Apply the v2 delete rules exactly: a position delete applies at
+    sequence number greater than or equal to the data entry, an equality delete at
+    greater than, both scoped to the same spec and partition, with null equal to
+    null, and using the data sequence number, not the file sequence number. Project
+    to the schema that was current at your target time, not the newest one."
+  verification: "A reader that follows the v2 rules returns the same rows as the Java
+    Iceberg 1.9.2 reader on the table before maintenance. Each wrong rule gives a
+    different row count you can trace, so the answer is checkable."
+  version_range: "Apache Iceberg v2, checked against Java Iceberg 1.9.2"
+  source: "https://iceberg.apache.org/spec/#scan-planning"
+  confidence: 0.8
+  status: reported
+  scope: public
+  tags: [time-travel, expire-snapshots, maintenance, recovery, deletes, name-mapping]
+  repro:
+    verifier: command
+    tool: python3
+    cwd: project
+    failing: ["naive_read.py"]
+    args: ["verify_recovery.py"]
+    expect_exit: 0

@@ -18,6 +18,7 @@ reproduction that data-doctor runs in a sandbox to mark it verified.
 
 - [Install](#install)
 - [Tutorial: your first diagnosis](#tutorial-your-first-diagnosis)
+- [A hard one: recover a lost Iceberg snapshot](#a-hard-one-recover-a-lost-iceberg-snapshot)
 - [How-to guides](#how-to-guides)
 - [How it works](#how-it-works)
 - [Commands](#commands)
@@ -117,6 +118,30 @@ Scanned the logs. Found 2 distinct failure(s): 2 known, 0 not yet in the bank.
 
 That is the loop: diagnose, apply, record, repeat. The rest of this README is
 reference.
+
+## A hard one: recover a lost Iceberg snapshot
+
+Most failures in the bank are quick to fix. This one is not. A scheduled
+maintenance job expired the Iceberg snapshot behind a past read. Time travel to
+that point now fails. Spark cannot find it, and DuckDB iceberg_scan returns 0 rows.
+
+The recovery rebuilds the lost state by hand from the files that survived. The path
+has many traps, so a clean but wrong row count is easy to produce. Frontier models
+miss it for this reason.
+
+data-doctor matches the error to the fix, and hands you the exact recipe. A bundled
+example then proves that recipe end to end. It reproduces the failure and runs the
+recovery. Then it checks the result against a reference answer of 1375 rows. The
+example needs no Spark, no JVM, and no cloud catalog.
+
+```
+pip install "data-doctor[iceberg-demo]"
+python3 examples/iceberg_asof/naive_read.py                    # the failure, exit 1
+data-doctor seed && data-doctor add examples/entries/iceberg-asof-demo.yaml
+data-doctor verify iceberg-asof-expired-snapshot --allow-commands --project examples/iceberg_asof
+```
+
+The full walkthrough is in [examples/iceberg_asof/](examples/iceberg_asof/).
 
 ## How-to guides
 

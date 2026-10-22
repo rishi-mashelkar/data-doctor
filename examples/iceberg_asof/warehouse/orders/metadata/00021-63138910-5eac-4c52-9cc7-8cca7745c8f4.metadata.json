@@ -1,0 +1,451 @@
+{
+  "format-version": 2,
+  "table-uuid": "eb2a6a74-e416-4741-8148-45f1f0305041",
+  "location": "s3://acme-lake/warehouse/analytics.db/orders",
+  "last-sequence-number": 14,
+  "last-updated-ms": 1773487800000,
+  "last-column-id": 9,
+  "current-schema-id": 4,
+  "schemas": [
+    {
+      "type": "struct",
+      "schema-id": 0,
+      "identifier-field-ids": [],
+      "fields": [
+        {
+          "id": 1,
+          "name": "order_id",
+          "required": false,
+          "type": "long"
+        },
+        {
+          "id": 2,
+          "name": "cust_id",
+          "required": false,
+          "type": "long"
+        },
+        {
+          "id": 3,
+          "name": "order_status",
+          "required": false,
+          "type": "string"
+        },
+        {
+          "id": 4,
+          "name": "amount",
+          "required": false,
+          "type": "decimal(12, 2)"
+        },
+        {
+          "id": 5,
+          "name": "channel",
+          "required": false,
+          "type": "string"
+        },
+        {
+          "id": 6,
+          "name": "created_ts",
+          "required": false,
+          "type": "timestamptz"
+        },
+        {
+          "id": 7,
+          "name": "region",
+          "required": false,
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "type": "struct",
+      "schema-id": 1,
+      "identifier-field-ids": [],
+      "fields": [
+        {
+          "id": 1,
+          "name": "order_id",
+          "required": false,
+          "type": "long"
+        },
+        {
+          "id": 2,
+          "name": "customer_id",
+          "required": false,
+          "type": "long"
+        },
+        {
+          "id": 3,
+          "name": "status",
+          "required": false,
+          "type": "string"
+        },
+        {
+          "id": 4,
+          "name": "amount",
+          "required": false,
+          "type": "decimal(12, 2)"
+        },
+        {
+          "id": 5,
+          "name": "channel",
+          "required": false,
+          "type": "string"
+        },
+        {
+          "id": 6,
+          "name": "created_at",
+          "required": false,
+          "type": "timestamptz"
+        },
+        {
+          "id": 7,
+          "name": "region",
+          "required": false,
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "type": "struct",
+      "schema-id": 2,
+      "identifier-field-ids": [],
+      "fields": [
+        {
+          "id": 1,
+          "name": "order_id",
+          "required": false,
+          "type": "long"
+        },
+        {
+          "id": 2,
+          "name": "customer_id",
+          "required": false,
+          "type": "long"
+        },
+        {
+          "id": 3,
+          "name": "status",
+          "required": false,
+          "type": "string"
+        },
+        {
+          "id": 4,
+          "name": "amount",
+          "required": false,
+          "type": "decimal(12, 2)"
+        },
+        {
+          "id": 6,
+          "name": "created_at",
+          "required": false,
+          "type": "timestamptz"
+        },
+        {
+          "id": 7,
+          "name": "region",
+          "required": false,
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "type": "struct",
+      "schema-id": 3,
+      "identifier-field-ids": [],
+      "fields": [
+        {
+          "id": 1,
+          "name": "order_id",
+          "required": false,
+          "type": "long"
+        },
+        {
+          "id": 2,
+          "name": "customer_id",
+          "required": false,
+          "type": "long"
+        },
+        {
+          "id": 3,
+          "name": "status",
+          "required": false,
+          "type": "string"
+        },
+        {
+          "id": 4,
+          "name": "amount",
+          "required": false,
+          "type": "decimal(12, 2)"
+        },
+        {
+          "id": 6,
+          "name": "created_at",
+          "required": false,
+          "type": "timestamptz"
+        },
+        {
+          "id": 7,
+          "name": "region",
+          "required": false,
+          "type": "string"
+        },
+        {
+          "id": 8,
+          "name": "channel",
+          "required": false,
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "type": "struct",
+      "schema-id": 4,
+      "identifier-field-ids": [],
+      "fields": [
+        {
+          "id": 1,
+          "name": "order_id",
+          "required": false,
+          "type": "long"
+        },
+        {
+          "id": 2,
+          "name": "customer_id",
+          "required": false,
+          "type": "long"
+        },
+        {
+          "id": 3,
+          "name": "status",
+          "required": false,
+          "type": "string"
+        },
+        {
+          "id": 4,
+          "name": "amount",
+          "required": false,
+          "type": "decimal(12, 2)"
+        },
+        {
+          "id": 6,
+          "name": "created_at",
+          "required": false,
+          "type": "timestamptz"
+        },
+        {
+          "id": 7,
+          "name": "region",
+          "required": false,
+          "type": "string"
+        },
+        {
+          "id": 8,
+          "name": "channel",
+          "required": false,
+          "type": "string"
+        },
+        {
+          "id": 9,
+          "name": "priority",
+          "required": false,
+          "type": "int"
+        }
+      ]
+    }
+  ],
+  "default-spec-id": 2,
+  "partition-specs": [
+    {
+      "spec-id": 0,
+      "fields": [
+        {
+          "name": "region",
+          "transform": "identity",
+          "source-id": 7,
+          "field-id": 1000
+        }
+      ]
+    },
+    {
+      "spec-id": 1,
+      "fields": [
+        {
+          "name": "region",
+          "transform": "identity",
+          "source-id": 7,
+          "field-id": 1000
+        },
+        {
+          "name": "created_at_month",
+          "transform": "month",
+          "source-id": 6,
+          "field-id": 1001
+        }
+      ]
+    },
+    {
+      "spec-id": 2,
+      "fields": [
+        {
+          "name": "region",
+          "transform": "identity",
+          "source-id": 7,
+          "field-id": 1000
+        },
+        {
+          "name": "created_at_day",
+          "transform": "day",
+          "source-id": 6,
+          "field-id": 1002
+        }
+      ]
+    }
+  ],
+  "last-partition-id": 1002,
+  "default-sort-order-id": 0,
+  "sort-orders": [
+    {
+      "order-id": 0,
+      "fields": []
+    }
+  ],
+  "properties": {
+    "write.format.default": "parquet",
+    "write.delete.mode": "merge-on-read",
+    "write.update.mode": "merge-on-read",
+    "write.merge.mode": "merge-on-read",
+    "owner": "data-platform",
+    "migrated": "true",
+    "schema.name-mapping.default": "[{\"field-id\": 1, \"names\": [\"order_id\"]}, {\"field-id\": 2, \"names\": [\"cust_id\", \"customer_id\"]}, {\"field-id\": 3, \"names\": [\"order_status\", \"status\"]}, {\"field-id\": 4, \"names\": [\"amount\"]}, {\"field-id\": 5, \"names\": []}, {\"field-id\": 6, \"names\": [\"created_ts\", \"created_at\"]}, {\"field-id\": 7, \"names\": [\"region\"]}, {\"field-id\": 8, \"names\": [\"channel\"]}, {\"field-id\": 9, \"names\": [\"priority\"]}]"
+  },
+  "current-snapshot-id": 2172795035679528149,
+  "refs": {
+    "main": {
+      "snapshot-id": 2172795035679528149,
+      "type": "branch"
+    }
+  },
+  "snapshots": [
+    {
+      "snapshot-id": 2172795035679528149,
+      "parent-snapshot-id": 203451291616051439,
+      "sequence-number": 14,
+      "timestamp-ms": 1773487500000,
+      "manifest-list": "s3://acme-lake/warehouse/analytics.db/orders/metadata/snap-2172795035679528149-1-377beaba-aeba-4769-9f28-3a581677de4e.avro",
+      "summary": {
+        "operation": "replace",
+        "manifests-created": "2",
+        "manifests-kept": "12",
+        "manifests-replaced": "5",
+        "entries-processed": "0",
+        "changed-partition-count": "0",
+        "total-records": "1569",
+        "total-files-size": "176609",
+        "total-data-files": "65",
+        "total-delete-files": "44",
+        "total-position-deletes": "40",
+        "total-equality-deletes": "108",
+        "spark.app.id": "app-20260314112003-0014",
+        "app-id": "app-20260314112003-0014",
+        "engine-name": "spark",
+        "engine-version": "3.5.6",
+        "iceberg-version": "Apache Iceberg 1.9.2 (commit 071d5606bc6199a0be9b3f274ec7fbf111d88821)"
+      },
+      "schema-id": 4
+    }
+  ],
+  "statistics": [],
+  "partition-statistics": [],
+  "snapshot-log": [
+    {
+      "timestamp-ms": 1773487500000,
+      "snapshot-id": 2172795035679528149
+    }
+  ],
+  "metadata-log": [
+    {
+      "timestamp-ms": 1772265600000,
+      "metadata-file": "s3://acme-lake/warehouse/analytics.db/orders/metadata/00000-99219dc8-aa59-4ea5-9733-7ad087b4ce94.metadata.json"
+    },
+    {
+      "timestamp-ms": 1772272800000,
+      "metadata-file": "s3://acme-lake/warehouse/analytics.db/orders/metadata/00001-b3685876-2f10-40e1-9698-17229f434d33.metadata.json"
+    },
+    {
+      "timestamp-ms": 1772432100000,
+      "metadata-file": "s3://acme-lake/warehouse/analytics.db/orders/metadata/00002-19800025-a3d8-4007-adbf-e8b9fe77697b.metadata.json"
+    },
+    {
+      "timestamp-ms": 1772452800000,
+      "metadata-file": "s3://acme-lake/warehouse/analytics.db/orders/metadata/00003-db3c2478-ce41-4767-85c8-4e38649814c2.metadata.json"
+    },
+    {
+      "timestamp-ms": 1772481600000,
+      "metadata-file": "s3://acme-lake/warehouse/analytics.db/orders/metadata/00004-563cfc76-4b18-41cf-99f6-812d6fe6a040.metadata.json"
+    },
+    {
+      "timestamp-ms": 1772528400000,
+      "metadata-file": "s3://acme-lake/warehouse/analytics.db/orders/metadata/00005-5c84d35a-e435-4764-a5ca-7dc365cdbfe2.metadata.json"
+    },
+    {
+      "timestamp-ms": 1772605200000,
+      "metadata-file": "s3://acme-lake/warehouse/analytics.db/orders/metadata/00006-70d02191-b7a6-4228-bdd3-3f48316e0ce9.metadata.json"
+    },
+    {
+      "timestamp-ms": 1772805600000,
+      "metadata-file": "s3://acme-lake/warehouse/analytics.db/orders/metadata/00007-3c621ec5-d4ee-4d7a-8ad5-81ad59095294.metadata.json"
+    },
+    {
+      "timestamp-ms": 1772883000000,
+      "metadata-file": "s3://acme-lake/warehouse/analytics.db/orders/metadata/00008-7d6429f6-3943-4a71-933c-29e0211525b7.metadata.json"
+    },
+    {
+      "timestamp-ms": 1772950200000,
+      "metadata-file": "s3://acme-lake/warehouse/analytics.db/orders/metadata/00009-d90b2e36-dd09-4be1-bd45-10f85023aac7.metadata.json"
+    },
+    {
+      "timestamp-ms": 1773046800000,
+      "metadata-file": "s3://acme-lake/warehouse/analytics.db/orders/metadata/00010-16148d63-6d6a-4e52-939c-14764ea95216.metadata.json"
+    },
+    {
+      "timestamp-ms": 1773139500000,
+      "metadata-file": "s3://acme-lake/warehouse/analytics.db/orders/metadata/00011-c27c9713-09f6-4846-86b7-65b11460c676.metadata.json"
+    },
+    {
+      "timestamp-ms": 1773209100000,
+      "metadata-file": "s3://acme-lake/warehouse/analytics.db/orders/metadata/00012-fa6add5b-0c8f-4ece-b95d-ba1575b1c687.metadata.json"
+    },
+    {
+      "timestamp-ms": 1773252300000,
+      "metadata-file": "s3://acme-lake/warehouse/analytics.db/orders/metadata/00013-b2744a99-f441-449d-bb03-88e1204a5426.metadata.json"
+    },
+    {
+      "timestamp-ms": 1773333600000,
+      "metadata-file": "s3://acme-lake/warehouse/analytics.db/orders/metadata/00014-8b2c5be0-90dc-4b2c-afd5-e84a88325311.metadata.json"
+    },
+    {
+      "timestamp-ms": 1773335100000,
+      "metadata-file": "s3://acme-lake/warehouse/analytics.db/orders/metadata/00015-e41aa54e-291c-4e7c-8648-17e51cae132c.metadata.json"
+    },
+    {
+      "timestamp-ms": 1773388800000,
+      "metadata-file": "s3://acme-lake/warehouse/analytics.db/orders/metadata/00016-cc6fd846-e2e9-4b3a-bf96-0dc5e5822a44.metadata.json"
+    },
+    {
+      "timestamp-ms": 1773414000000,
+      "metadata-file": "s3://acme-lake/warehouse/analytics.db/orders/metadata/00017-58230e96-2993-4eb2-8225-f6563c06efe2.metadata.json"
+    },
+    {
+      "timestamp-ms": 1773485700000,
+      "metadata-file": "s3://acme-lake/warehouse/analytics.db/orders/metadata/00018-75dca756-3b59-43af-a4b1-d25ceb125188.metadata.json"
+    },
+    {
+      "timestamp-ms": 1773486000000,
+      "metadata-file": "s3://acme-lake/warehouse/analytics.db/orders/metadata/00019-ef885ca3-4f8d-45c0-91bf-c384fd2103db.metadata.json"
+    },
+    {
+      "timestamp-ms": 1773487500000,
+      "metadata-file": "s3://acme-lake/warehouse/analytics.db/orders/metadata/00020-dc3d49f6-9a1a-4686-8f48-b44d2e303c15.metadata.json"
+    }
+  ]
+}

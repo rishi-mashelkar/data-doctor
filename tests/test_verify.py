@@ -1,4 +1,5 @@
 import shutil
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -97,6 +98,18 @@ def test_spark_example_repro_skips_without_spark():
     repro = _example_entry("spark-job-demo.yaml")["repro"]
     r = run_repro(repro, project=_EXAMPLES / "spark_demo", allow_commands=True)
     assert r.status == "skipped" and "spark-submit" in r.detail
+
+
+def test_iceberg_example_repro_reproduces_and_fixes():
+    # The recovery reads the table with pyarrow and fastavro. The repro shells out
+    # to python3 on PATH, so skip unless that interpreter has both readers.
+    probe = subprocess.run(["python3", "-c", "import pyarrow, fastavro"],
+                           check=False, capture_output=True, text=True)
+    if probe.returncode != 0:
+        pytest.skip("python3 on PATH lacks pyarrow and fastavro")
+    repro = _example_entry("iceberg-asof-demo.yaml")["repro"]
+    r = run_repro(repro, project=_EXAMPLES / "iceberg_asof", allow_commands=True)
+    assert r.status == "passed", r.detail
 
 
 def test_seed_duckdb_entries_all_verify():
